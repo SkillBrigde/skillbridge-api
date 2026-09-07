@@ -1,0 +1,33 @@
+name: API CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore SkillBridge.slnx
+
+      - name: Build
+        run: dotnet build SkillBridge.slnx --configuration Release --no-restore --warnaserror
+
+      - name: Verify formatting
+        run: dotnet format SkillBridge.slnx --verify-no-changes --no-restore

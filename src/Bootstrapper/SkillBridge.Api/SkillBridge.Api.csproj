@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\SkillBridge.BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Modules\Booking\SkillBridge.Modules.Booking\SkillBridge.Modules.Booking.csproj" />
+    <ProjectReference Include="..\..\Modules\Catalog\SkillBridge.Modules.Catalog\SkillBridge.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\SkillBridge.Modules.Identity\SkillBridge.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Learning\SkillBridge.Modules.Learning\SkillBridge.Modules.Learning.csproj" />
+    <ProjectReference Include="..\..\Modules\Messaging\SkillBridge.Modules.Messaging\SkillBridge.Modules.Messaging.csproj" />
+    <ProjectReference Include="..\..\Modules\Payments\SkillBridge.Modules.Payments\SkillBridge.Modules.Payments.csproj" />
+    <ProjectReference Include="..\..\Modules\Profiles\SkillBridge.Modules.Profiles\SkillBridge.Modules.Profiles.csproj" />
+    <ProjectReference Include="..\..\Modules\Recommendations\SkillBridge.Modules.Recommendations\SkillBridge.Modules.Recommendations.csproj" />
+    <ProjectReference Include="..\..\Modules\Reviews\SkillBridge.Modules.Reviews\SkillBridge.Modules.Reviews.csproj" />
+    <ProjectReference Include="..\..\Modules\Scheduling\SkillBridge.Modules.Scheduling\SkillBridge.Modules.Scheduling.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
