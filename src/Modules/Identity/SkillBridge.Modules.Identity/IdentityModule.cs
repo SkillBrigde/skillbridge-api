@@ -25,7 +25,7 @@ public sealed class IdentityModule : ModuleDefinition
         {
             options.UseNpgsql(connectionString, npgsqlOptions =>
             {
-                // Äáº·t báº£ng lá»‹ch sá»­ migration vĂ o Ä‘Ăºng schema 'identity' cá»§a module
+                // Đặt bảng lịch sử migration vào đúng schema 'identity' của module
                 npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema);
             });
         });
@@ -33,12 +33,12 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Káº¿ thá»«a probe endpoint: GET /api/v1/identity/_module
+        // Kế thừa probe endpoint: GET /api/v1/identity/_module
         base.MapEndpoints(endpoints);
 
         var group = endpoints.MapGroup($"/api/v1/{RoutePrefix}").WithTags(Name);
 
-        // Endpoint test nghiá»‡p vá»¥ máº«u
+        // Endpoint test nghiệp vụ mẫu
         group.MapGet("/users/me", () =>
         {
             var sampleUser = User.Create("mentor@skillbridge.dev", "Nguyen Van A", "Mentor");
@@ -53,7 +53,7 @@ public sealed class IdentityModule : ModuleDefinition
             });
         });
 
-        // Endpoint láº¥y danh sĂ¡ch users tá»« database
+        // Endpoint lấy danh sách users từ database
         group.MapGet("/users", async (IdentityDbContext dbContext) =>
         {
             var users = await dbContext.Users
@@ -84,14 +84,14 @@ public sealed class IdentityModule : ModuleDefinition
             var dbContext = scope.ServiceProvider.GetService<IdentityDbContext>();
             if (dbContext is not null)
             {
-                logger.LogInformation("Äang kiá»ƒm tra vĂ  Ă¡p dá»¥ng pending migrations cho Module Identity...");
+                logger.LogInformation("Đang kiểm tra và áp dụng pending migrations cho Module Identity...");
                 await dbContext.Database.MigrateAsync();
-                logger.LogInformation("Migrations cho Module Identity Ä‘Ă£ hoĂ n táº¥t.");
+                logger.LogInformation("Migrations cho Module Identity đã hoàn tất.");
             }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "KhĂ´ng thá»ƒ tá»± Ä‘á»™ng migrate IdentityDbContext. HĂ£y kiá»ƒm tra PostgreSQL container Ä‘ang cháº¡y.");
+            logger.LogWarning(ex, "Không thể tự động migrate IdentityDbContext. Hãy kiểm tra PostgreSQL container đang chạy.");
         }
     }
 }
