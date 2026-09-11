@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Scheduling;
 
 public sealed class SchedulingModule : ModuleDefinition
 {
     public override string Name => "Scheduling";
-    protected override string RoutePrefix => "scheduling";
+    public override string RoutePrefix => "scheduling";
 }

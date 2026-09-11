@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Messaging;
 
 public sealed class MessagingModule : ModuleDefinition
 {
     public override string Name => "Messaging";
-    protected override string RoutePrefix => "messaging";
+    public override string RoutePrefix => "messaging";
 }

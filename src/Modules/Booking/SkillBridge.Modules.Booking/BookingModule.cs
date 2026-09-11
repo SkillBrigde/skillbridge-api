@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Booking;
 
 public sealed class BookingModule : ModuleDefinition
 {
     public override string Name => "Booking";
-    protected override string RoutePrefix => "bookings";
+    public override string RoutePrefix => "booking";
 }

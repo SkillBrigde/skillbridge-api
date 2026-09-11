@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Reviews;
 
 public sealed class ReviewsModule : ModuleDefinition
 {
     public override string Name => "Reviews";
-    protected override string RoutePrefix => "reviews";
+    public override string RoutePrefix => "reviews";
 }

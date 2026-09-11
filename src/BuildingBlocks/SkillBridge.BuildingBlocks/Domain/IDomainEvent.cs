@@ -1,6 +1,9 @@
+using MediatR;
+
 namespace SkillBridge.BuildingBlocks.Domain;
 
-public interface IDomainEvent
+public interface IDomainEvent : INotification
 {
-    DateTimeOffset OccurredAtUtc { get; }
+    Guid EventId => Guid.NewGuid();
+    DateTimeOffset OccurredOnUtc => DateTimeOffset.UtcNow;
 }

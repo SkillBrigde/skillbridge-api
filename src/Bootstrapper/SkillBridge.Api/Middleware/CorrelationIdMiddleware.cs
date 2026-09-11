@@ -1,19 +1,34 @@
+using Microsoft.Extensions.Primitives;
+
 namespace SkillBridge.Api.Middleware;
 
-public sealed class CorrelationIdMiddleware(RequestDelegate next)
+public class CorrelationIdMiddleware
 {
-    private const string HeaderName = "X-Correlation-ID";
+    private const string CorrelationIdHeaderName = "X-Correlation-ID";
+    private readonly RequestDelegate _next;
+
+    public CorrelationIdMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var candidate = context.Request.Headers[HeaderName].FirstOrDefault();
-        var correlationId = Guid.TryParse(candidate, out var parsed)
-            ? parsed.ToString("D")
-            : Guid.NewGuid().ToString("D");
+        // 1. Kiểm tra xem client có gửi kèm Header X-Correlation-ID không, nếu không thì tự sinh mới
+        if (!context.Request.Headers.TryGetValue(CorrelationIdHeaderName, out StringValues correlationId) ||
+            string.IsNullOrWhiteSpace(correlationId))
+        {
+            correlationId = Guid.NewGuid().ToString("N");
+            context.Request.Headers[CorrelationIdHeaderName] = correlationId;
+        }
 
-        context.TraceIdentifier = correlationId;
-        context.Response.Headers[HeaderName] = correlationId;
+        // 2. Gán Correlation ID vào Response Header để client đối chiếu khi cần
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers[CorrelationIdHeaderName] = correlationId;
+            return Task.CompletedTask;
+        });
 
-        await next(context);
+        await _next(context);
     }
 }
