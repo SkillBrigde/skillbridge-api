@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Catalog;
 
 public sealed class CatalogModule : ModuleDefinition
 {
     public override string Name => "Catalog";
-    protected override string RoutePrefix => "catalog";
+    public override string RoutePrefix => "catalog";
 }

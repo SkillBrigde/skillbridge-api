@@ -1,19 +1,31 @@
 namespace SkillBridge.BuildingBlocks.Domain;
 
-public abstract class Entity<TId> where TId : notnull
+public abstract class Entity<TId> : IEquatable<Entity<TId>>
+    where TId : notnull
 {
-    private readonly List<IDomainEvent> _domainEvents = [];
+    public TId Id { get; protected set; } = default!;
 
-    protected Entity(TId id)
+    protected Entity() { }
+
+    protected Entity(TId id) => Id = id;
+
+    public bool Equals(Entity<TId>? other)
     {
-        Id = id;
+        if (other is null || other.GetType() != GetType())
+            return false;
+
+        return EqualityComparer<TId>.Default.Equals(Id, other.Id);
     }
 
-    public TId Id { get; }
+    public override bool Equals(object? obj) =>
+        obj is Entity<TId> other && Equals(other);
 
-    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+    public override int GetHashCode() =>
+        EqualityComparer<TId>.Default.GetHashCode(Id);
 
-    protected void Raise(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+    public static bool operator ==(Entity<TId>? left, Entity<TId>? right) =>
+        Equals(left, right);
 
-    public void ClearDomainEvents() => _domainEvents.Clear();
+    public static bool operator !=(Entity<TId>? left, Entity<TId>? right) =>
+        !Equals(left, right);
 }

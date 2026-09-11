@@ -1,9 +1,10 @@
-using SkillBridge.BuildingBlocks.Modules;
+
+using SkillBridge.BuildingBlocks.Contracts;
 
 namespace SkillBridge.Modules.Learning;
 
 public sealed class LearningModule : ModuleDefinition
 {
     public override string Name => "Learning";
-    protected override string RoutePrefix => "learning";
+    public override string RoutePrefix => "learning";
 }

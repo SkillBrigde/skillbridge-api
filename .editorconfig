@@ -11,7 +11,11 @@ trim_trailing_whitespace = true
 [*.{json,yml,yaml}]
 indent_size = 2
 
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
 [*.cs]
 dotnet_sort_system_directives_first = true
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_using_directive_placement = outside_namespace:warning
