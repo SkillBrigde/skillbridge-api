@@ -19,7 +19,7 @@ public sealed class IdentityModule : ModuleDefinition
     public override void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Database")
-            ?? "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge";
+            ?? "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only";
 
         services.AddDbContext<IdentityDbContext>(options =>
         {
