@@ -102,7 +102,7 @@ if (app.Environment.IsDevelopment())
         options.WithTitle("SkillBridge Modular API");
     });
 
-    // Má»—i module tá»± khá»Ÿi táº¡o vĂ  Ă¡p dá»¥ng migration Ä‘á»™c láº­p (Encapsulated Initialization)
+    // Mỗi module tự khởi tạo và áp dụng migration độc lập (Encapsulated Initialization)
     foreach (var module in modules)
     {
         await module.InitializeAsync(app.Services);
@@ -116,7 +116,7 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 });
 app.MapHealthChecks("/health/ready");
 
-// Root endpoint kiá»ƒm tra tráº¡ng thĂ¡i chung cá»§a Host
+// Root endpoint kiểm tra trạng thái chung của Host
 app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
 {
     Service = "SkillBridge API",
@@ -129,7 +129,7 @@ app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
     Timestamp = DateTimeOffset.UtcNow
 }));
 
-// ÄÄƒng kĂ½ Endpoints cá»§a tá»«ng Module
+// Đăng ký Endpoints của từng Module
 foreach (var module in modules)
 {
     module.MapEndpoints(app);
@@ -137,5 +137,5 @@ foreach (var module in modules)
 
 app.Run();
 
-// Cho phĂ©p WebApplicationFactory trong Integration Tests truy cáº­p
+// Cho phép WebApplicationFactory trong Integration Tests truy cập
 public partial class Program;

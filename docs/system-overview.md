@@ -1,181 +1,150 @@
 # Tài Liệu Thiết Kế Tổng Quan Hệ Thống (System Architecture Overview)
 
-Tài liệu này cung cấp bức tranh toàn cảnh về kiến trúc hệ thống, ranh giới nghiệp vụ (Bounded Contexts), quy tắc dữ liệu và luồng giao tiếp của nền tảng **SkillBridge API**.  
-Mọi kỹ sư (Backend, DevOps, QA, Frontend) tham gia dự án cần nắm vững tài liệu này trước khi lập trình hoặc thiết kế tính năng mới.
+Tài liệu này cung cấp bức tranh toàn cảnh về kiến trúc hệ thống, ranh giới nghiệp vụ (Bounded Contexts), quy chuẩn dữ liệu và luồng giao tiếp của nền tảng **SkillBridge** (Full-stack: Next.js 16 BFF + .NET 10 Modular Monolith + PostgreSQL 17 + Redis 7).  
+Mọi kỹ sư (Backend, Frontend, DevOps, QA) tham gia dự án cần nắm vững tài liệu này trước khi lập trình hoặc thiết kế tính năng mới.
+
+Tài liệu thiết kế chi tiết bản in Microsoft Word: 👉 [`SkillBridge_Master_System_Architecture_and_Design_v4.docx`](../../SkillBridge_Master_System_Architecture_and_Design_v4.docx)
 
 ---
 
-## 1. Tầm nhìn & Mô hình Nghiệp vụ (Business Domain)
+## 1. Tầm nhìn & Mô hình Nghiệp vụ (Trust Broker Marketplace)
 
-**SkillBridge** là nền tảng kết nối người hướng dẫn (Mentor) và người học (Mentee) trong lĩnh vực công nghệ và kỹ năng mềm.  
-Nền tảng hỗ trợ toàn bộ vòng đời của một buổi cố vấn:
-1. **Khám phá (Discovery)**: Mentee tìm kiếm Mentor theo kỹ năng, đánh giá và giá theo giờ (Catalog & Reviews & Recommendations).
-2. **Đặt lịch (Booking & Scheduling)**: Chọn khung giờ trống của Mentor, tạo lịch hẹn (Booking & Scheduling).
-3. **Thanh toán (Payments)**: Xử lý giao dịch đặt cọc / thanh toán buổi học (Payments).
-4. **Học tập (Learning & Messaging)**: Tạo phòng học, trao đổi tài liệu và chat realtime (Learning & Messaging).
-5. **Phản hồi (Reviews & Recommendations)**: Đánh giá chất lượng sau buổi học, cập nhật xếp hạng Mentor.
+**SkillBridge** là một "Thị trường Niềm Tin" (Trust Broker Marketplace) kết nối giữa Chuyên gia công nghệ (Mentor) và Người học/Lập trình viên đang đi làm (Mentee).  
+Nền tảng vận hành theo 5 giai đoạn khép kín:
+1. **Khám phá (Discovery)**: Mentee tìm kiếm theo **Gói Kết Quả Cụ Thể (Productized Services)** như *Review CV Chuẩn ATS*, *Mock Interview 1-1*, *Lộ trình Backend*.
+2. **Khảo sát & Đặt lịch (Intake Form & Booking)**: Mentee bắt buộc điền **Intake Form 3 câu hỏi** và chọn khung giờ rảnh (Slot). Hệ thống kích hoạt **Khóa nguyên tử Redis 10 phút** (`SET slot:lock {id} EX 600 NX`) chống giữ chỗ dạo.
+3. **Thanh toán đôi chuẩn Fintech (Dual Payment Gateway)**: Hỗ trợ linh hoạt:
+   - **PayOS (VietQR NAPAS 24/7)**: Tiền thật nổ thẳng vào tài khoản ngân hàng cá nhân của Developer/Admin trong 1–2 giây, Webhook HMAC-SHA256, SignalR cập nhật UI tức thì.
+   - **VNPAY Sandbox**: Chuyển hướng nhập thẻ ATM test NCB (`9704198526191432198`), phục vụ hội đồng chấm đồ án học thuật.
+4. **Học tập & Nghiệm thu (Learning Session & Proof)**: Học qua Google Meet, Mentor chụp ảnh màn hình nghiệm thu nộp lên MinIO/S3.
+5. **Két Ký Quỹ Escrow & Đánh Giá (Escrow & Trust)**: Tiền được bảo vệ trong két Escrow, giải ngân theo cột mốc (Milestone Release) sau 24h không có khiếu nại (chu kỳ T+3), mentee đánh giá review phân tầng.
 
 ---
 
-## 2. Kiến trúc Tổng thể: Modular Monolith
-
-Dự án áp dụng mô hình **Modular Monolith** trên nền tảng **.NET 10** theo chuẩn **Domain-Driven Design (DDD)**.
+## 2. Kiến trúc Tổng thể: C4 Container & Phân Tầng Hệ Thống
 
 ```mermaid
-graph TD
-    subgraph Bootstrapper ["src/Bootstrapper/SkillBridge.Api (Host)"]
-        HTTP["HTTP Pipeline & Middleware"]
-        CORS["CORS & Rate Limiting"]
-        DOCS["Scalar / OpenAPI Docs"]
-        HC["Health Checks (/health/*)"]
-        HUB["SignalR Hubs"]
+graph TB
+    Browser["Trình Duyệt Client (React 19 / Next.js SPA)"]
+    
+    subgraph BFF_Layer ["Tầng Edge & BFF (Next.js 16 Server)"]
+        BFF["Next.js BFF Server<br/>• Quản lý Cookie __Host-session (HttpOnly, Secure)<br/>• Bắt tay Google OAuth2 1-Click<br/>• Zero-Token ở Browser chống XSS 100%"]
     end
 
-    subgraph BuildingBlocks ["src/BuildingBlocks/SkillBridge.BuildingBlocks (Shared Kernel)"]
-        DomainPrim["Entity, AggregateRoot, IDomainEvent"]
-        ResultPattern["Result, Error, ErrorType"]
-        ModContract["IModule, ModuleDefinition"]
+    subgraph Core_API ["Tầng Nghiệp Vụ (.NET 10 Modular Monolith)"]
+        Gateway["ASP.NET Core Engine<br/>• Rate Limiter (strict-auth, strict-otp, general)<br/>• JWT Bearer Auth & ICurrentUser<br/>• Bộ Lọc Chat Chống Gạ Gẫm Ngoài Sàn"]
+        
+        subgraph Sub_Modules ["Các Bounded Contexts Độc Lập"]
+            M1["1. Identity & Sessions (RBAC, Audit)"]
+            M2["2. Profiles & Services (Gói dịch vụ, KYC)"]
+            M3["3. Scheduling & Slots (Lịch rảnh, Lock 10m)"]
+            M4["4. Booking & Learning (Vòng đời, Intake Form)"]
+            M5["5. Payments & Dual Escrow (PayOS + VNPAY)"]
+            M6["6. Messaging & Realtime (SignalR Chat)"]
+            M7["7. Trust & Disputes (Review, Khiếu nại SLA 48h)"]
+        end
     end
 
-    subgraph Modules ["src/Modules/* (Independently Owned Modules)"]
-        Identity["Module Identity<br/>(Schema: identity)"]
-        Profiles["Module Profiles<br/>(Schema: profiles)"]
-        Catalog["Module Catalog<br/>(Schema: catalog)"]
-        Booking["Module Booking<br/>(Schema: booking)"]
-        Scheduling["Module Scheduling<br/>(Schema: scheduling)"]
-        Payments["Module Payments<br/>(Schema: payments)"]
-        Learning["Module Learning<br/>(Schema: learning)"]
-        Messaging["Module Messaging<br/>(Schema: messaging)"]
-        Reviews["Module Reviews<br/>(Schema: reviews)"]
-        Recommendations["Module Recommendations<br/>(Schema: recommendations)"]
+    subgraph Data_Layer ["Tầng Hạ Tầng Lưu Trữ Đa Dụng"]
+        PG[("PostgreSQL 17<br/>24 Bảng / Decoupled GUID")]
+        Redis[("Redis 7.0<br/>Khóa Slot 10p, OTP, Cache")]
+        MinIO[("MinIO / S3<br/>Ảnh KYC, Ảnh Nghiệm Thu")]
+        RabbitMQ[("RabbitMQ + Quartz.NET<br/>Hàng Đợi Sự Kiện & Lập Lịch T+3")]
     end
 
-    Bootstrapper --> Modules
-    Bootstrapper --> BuildingBlocks
-    Modules --> BuildingBlocks
+    Browser -->|"HTTPS Cookie __Host-session"| BFF
+    BFF -->|"Internal REST API (Bearer JWT)"| Gateway
+    Gateway --> Sub_Modules
+    Sub_Modules --> PG
+    Sub_Modules --> Redis
+    Sub_Modules --> MinIO
+    Sub_Modules --> RabbitMQ
 ```
 
-### 3 Luật Bất Biến của Hệ Thống (Architectural Invariants):
-1. **Cấm tuyệt đối Project Reference chéo giữa các Module**:
-   - `SkillBridge.Modules.Booking` **KHÔNG ĐƯỢC PHÉP** reference tới `SkillBridge.Modules.Identity` hay bất kỳ module nào khác.
-   - Các module chỉ được reference duy nhất tới `SkillBridge.BuildingBlocks`.
+### 3 Luật Bất Biến của Kiến Trúc (Architectural Invariants):
+1. **Cấm tuyệt đối Reference chéo giữa các Module**:
+   - `SkillBridge.Modules.Booking` **KHÔNG ĐƯỢC PHÉP** reference tới `SkillBridge.Modules.Identity` hay `Payments`.
+   - Các module chỉ giao tiếp bằng mã định danh `Guid` trần (Decoupled GUID keys) và gửi Integration Events.
 2. **Cô lập dữ liệu tuyệt đối (Data Isolation)**:
-   - Mỗi module sở hữu riêng một PostgreSQL Schema (`identity.*`, `booking.*`).
-   - Tuyệt đối **không tạo Khóa Ngoại (Foreign Key)** nối chéo giữa các schema.
-   - Giữa các module chỉ lưu **ID dạng `Guid` trần** (Unconstrained Foreign Identifier).
-3. **Tính toàn vẹn giao dịch (Eventual Consistency)**:
-   - Không thực hiện distributed transaction liên module.
-   - Giao tiếp liên module dựa trên **Integration Events** phát qua **RabbitMQ** với **Transactional Outbox Pattern**.
+   - Mỗi module sở hữu riêng một PostgreSQL Schema (`identity.*`, `booking.*`, `payments.*`).
+   - Tuyệt đối **không tạo Khóa Ngoại vật lý (Physical Foreign Key)** nối chéo giữa các schema.
+3. **Mô hình Zero-Token In Browser**:
+   - Trình duyệt **hoàn toàn không lưu trữ Access Token hay Refresh Token** trong `localStorage` hay JavaScript memory.
+   - Next.js BFF Server đóng vai trò Token Handler, mã hóa phiên vào Cookie bảo mật cao `__Host-session` (`HttpOnly`, `Secure`, `SameSite=Strict`).
 
 ---
 
-## 3. Bản đồ Chi tiết 10 Bounded Contexts (10 Modules)
+## 3. Kiến Trúc Thanh Toán Đôi (Dual Payment Gateway Architecture)
 
-| STT | Module | Schema DB | Trách nhiệm chính (Responsibility) | Thực thể sở hữu (Entities) | Integration Events phát ra |
-| :---: | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Identity** | `identity` | Xác thực, phân quyền, đăng ký, đăng nhập, cấp phát JWT Tokens. | `User`, `Role`, `RefreshToken` | `UserRegisteredIntegrationEvent` |
-| 2 | **Profiles** | `profiles` | Hồ sơ chi tiết của Mentor (kỹ năng, kinh nghiệm, giá/giờ) và Mentee (mục tiêu học tập). | `MentorProfile`, `MenteeProfile`, `Certificate` | `MentorProfileUpdatedIntegrationEvent` |
-| 3 | **Catalog** | `catalog` | Cây danh mục kỹ năng, chủ đề mentoring, tag tìm kiếm. | `Category`, `SkillTopic`, `Tag` | `SkillCreatedIntegrationEvent` |
-| 4 | **Scheduling**| `scheduling`| Lịch biểu sẵn sàng (Availability Slots) của Mentor, ngày nghỉ, lịch bận. | `ScheduleSlot`, `TimeOff` | `SlotBookedIntegrationEvent`, `SlotReleasedIntegrationEvent` |
-| 5 | **Booking** | `booking` | Quy trình đặt lịch hẹn: Pending ➔ Confirmed ➔ Completed / Cancelled. | `BookingAppointment`, `BookingHistory` | `BookingCreatedIntegrationEvent`, `BookingConfirmedIntegrationEvent`, `BookingCancelledIntegrationEvent` |
-| 6 | **Payments** | `payments` | Xử lý thanh toán, ví người dùng (Wallet), giữ tiền (Escrow), hoàn tiền (Refund), thanh toán cho Mentor. | `PaymentTransaction`, `Wallet`, `PayoutInvoice` | `PaymentCompletedIntegrationEvent`, `PaymentRefundedIntegrationEvent` |
-| 7 | **Learning** | `learning` | Quản lý buổi học trực tuyến: phòng video call, tài liệu chia sẻ, ghi chú buổi học. | `LearningSession`, `SessionMaterial`, `SessionNote` | `SessionStartedIntegrationEvent`, `SessionCompletedIntegrationEvent` |
-| 8 | **Messaging**| `messaging` | Tin nhắn trao đổi trực tiếp giữa Mentor và Mentee, danh sách hội thoại, SignalR chat. | `Conversation`, `Message`, `MessageAttachment` | `MessageSentIntegrationEvent` |
-| 9 | **Reviews** | `reviews` | Đánh giá sao (1-5 sao) và nhận xét sau buổi học, tính điểm uy tín của Mentor. | `Review`, `MentorRatingSummary` | `ReviewSubmittedIntegrationEvent` |
-| 10| **Recommendations**| `recommendations`| Thuật toán gợi ý Mentor phù hợp nhất cho Mentee dựa trên kỹ năng, lịch sử và đánh giá. | `RecommendationCache`, `MentorScoreVector` | (Lắng nghe events từ các module khác để tính điểm) |
-
----
-
-## 4. Chiến lược Giao tiếp Liên Module (Communication Patterns)
-
-Dự án áp dụng kết hợp 2 hình thức giao tiếp theo [ADR 0002](adr/0002-communication-patterns.md):
+Hệ thống áp dụng **Strategy Pattern** và **Factory Pattern** cho phân hệ Payments:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Mentee as Mentee (Client)
-    participant Booking as Module Booking
-    participant Outbox as PostgreSQL (booking.outbox_messages)
-    participant Broker as RabbitMQ Broker
-    participant Payments as Module Payments
-    participant Scheduling as Module Scheduling
-
-    Mentee->>Booking: POST /api/v1/booking (Tạo lịch hẹn)
-    Note over Booking: Lưu Booking vào DB & Lưu Event vào Outbox trong 1 Transaction duy nhất
-    Booking->>Outbox: INSERT booking.bookings & INSERT booking.outbox_messages
-    Booking-->>Mentee: 201 Created (BookingId)
-
-    Note over Booking,Broker: Background Publisher quét Outbox định kỳ
-    Booking->>Broker: Publish BookingCreatedIntegrationEvent
-    Broker-->>Payments: Consume Event -> Khởi tạo thanh toán
-    Broker-->>Scheduling: Consume Event -> Khóa Slot thời gian của Mentor
+flowchart TD
+    CheckoutUI["Giao Diện Thanh Toán (Next.js)"] --> Factory["PaymentGatewayFactory"]
+    Factory -.-> PayOsAdapter["PayOsPaymentGateway (VietQR Open Banking)"]
+    Factory -.-> VnPayAdapter["VnPaySandboxPaymentGateway (Redirect Test Card)"]
+    
+    PayOsAdapter --> PayOS["PayOS API (NAPAS 24/7)"]
+    PayOS --> DevBank[("Tài Khoản Ngân Hàng Cá Nhân<br/>(Tiền Thật Bắn Về 1-2 Giây)")]
+    
+    VnPayAdapter --> VNPay["VNPAY Sandbox Gateway"]
+    VNPay --> FakeBank[("VNPAY Sandbox Ledger<br/>(Tiền Giả Lập Học Thuật)")]
+    
+    PayOS -->|"Webhook HMAC-SHA256"| WebhookCtrl["Payments Webhook Controller"]
+    VNPay -->|"IPN Webhook HMAC-SHA512"| WebhookCtrl
+    
+    WebhookCtrl --> DB[("PostgreSQL 17: PaymentOrder PAID & Escrow HOLDING")]
+    WebhookCtrl --> SignalR["SignalR Hub: Bắn sự kiện thành công"]
+    SignalR --> CheckoutUI
 ```
 
-### A. Truy vấn đồng bộ (In-Memory Query / Contracts)
-- Khi một Module cần đọc dữ liệu nhanh từ Module khác mà không làm gián đoạn luồng nghiệp vụ.
-- Được thực hiện qua Interface/Contract dự kiến đặt trong thư viện Contracts hoặc In-Memory Mediator mà **không để lộ Entity nội bộ**.
-
-### B. Luồng nghiệp vụ bất đồng bộ (Async Event-Driven qua Outbox + RabbitMQ)
-- Mọi thay đổi dữ liệu liên quan đến nhiều module bắt buộc phải dùng **Transactional Outbox Pattern**:
-  1. Khi Module `Booking` tạo đơn đặt lịch, nó ghi bản ghi vào bảng `booking.bookings` đồng thời ghi `BookingCreatedIntegrationEvent` vào bảng `booking.outbox_messages` **trong cùng một Database Transaction**.
-  2. Background Worker (Outbox Processor) đọc outbox và gửi message sang RabbitMQ.
-  3. Module nhận (như `Payments`, `Scheduling`) nhận message, kiểm tra bảng `inbox_messages` (Idempotency Key) để đảm bảo không xử lý trùng lặp.
+| Tiêu Chí | VNPAY Sandbox (Demo) | PayOS (VietQR) |
+| :--- | :--- | :--- |
+| **Bản chất dòng tiền** | Tiền giả lập học thuật (Sandbox). | Tiền thật chuyển khoản liên ngân hàng NAPAS 24/7. |
+| **Điểm đến dòng tiền** | Không vào đâu cả (Lưu log test của VNPAY). | **Bắn thẳng vào tài khoản ngân hàng cá nhân** của Developer/Admin. |
+| **Phương thức thanh toán**| Nhập số thẻ NCB test (`9704198526191432198`). | Mở App ngân hàng bất kỳ quét mã QR động. |
+| **Chữ ký số** | HMAC-SHA512 (`vnp_SecureHash`). | HMAC-SHA256 (Checksum Key PayOS). |
+| **Ứng dụng đồ án** | Báo cáo, kiểm tra luồng cổng truyền thống cho Thầy/Cô. | Live demo quét mã 2k, 5k nổ tiền thật tạo ấn tượng thực chiến. |
 
 ---
 
-## 5. Cấu trúc Chuẩn 4 Tầng Nội Bộ Của Mỗi Module
+## 4. Cấu trúc Chuẩn 4 Tầng Nội Bộ Của Mỗi Module (.NET 10)
 
 Mỗi Module là một project độc lập tuân thủ Clean Architecture:
 
 ```text
 src/Modules/{ModuleName}/SkillBridge.Modules.{ModuleName}/
 │
-├── Domain/                         <-- Tầng Lõi (Không phụ thuộc tầng nào)
-│   ├── {Entity}.cs                 <-- Kế thừa AggregateRoot<TId> hoặc Entity<TId>
-│   ├── Events/                     <-- Domain Events nội bộ (IDomainEvent)
-│   └── Errors/                     <-- Mã lỗi nghiệp vụ cụ thể của module
+├── Domain/                         <-- Tầng Lõi (Zero Dependency)
+│   ├── {Entity}.cs                 <-- AggregateRoot<TId> hoặc Entity<TId>
+│   ├── Events/                     <-- Domain Events nội bộ
+│   └── Errors/                     <-- Error codes nghiệp vụ
 │
-├── Application/                    <-- Tầng Ứng Dụng (Use Cases)
-│   ├── Commands/                   <-- Use cases thay đổi dữ liệu (CQRS)
-│   ├── Queries/                    <-- Use cases đọc dữ liệu (CQRS)
+├── Application/                    <-- Tầng Ứng Dụng (CQRS MediatR)
+│   ├── Commands/                   <-- Use cases thay đổi dữ liệu
+│   ├── Queries/                    <-- Use cases truy vấn dữ liệu
+│   ├── Validators/                 <-- FluentValidation rules
 │   └── DTOs/                       <-- Request / Response DTOs
 │
-├── Infrastructure/                 <-- Tầng Hạ Tầng (Persistence & External)
+├── Infrastructure/                 <-- Tầng Hạ Tầng
 │   ├── Data/
-│   │   ├── {Name}DbContext.cs      <-- Kế thừa DbContext, gán Schema riêng
-│   │   └── Configurations/         <-- IEntityTypeConfiguration<T> Fluent API
-│   └── Migrations/                 <-- Thư mục chứa EF Core Migrations
+│   │   ├── {Name}DbContext.cs      <-- EF Core DbContext, Schema riêng biệt
+│   │   └── Configurations/         <-- Fluent API mappings
+│   ├── Adapters/                   <-- Payment Gateway, Third-party clients
+│   └── Migrations/                 <-- EF Core Migrations
 │
-├── Endpoints/                      <-- Tầng Giao Tiếp (HTTP Minimal APIs)
-│   └── {Feature}Endpoints.cs       <-- Map endpoints nhóm theo /api/v1/{module}/...
+├── Endpoints/                      <-- Tầng Giao Tiếp (Minimal APIs)
+│   └── {Feature}Endpoints.cs       <-- Ánh xạ HTTP Routes vào MediatR Pipeline
 │
-└── {Name}Module.cs                 <-- Điểm neo Module (Kế thừa ModuleDefinition)
+└── {Name}Module.cs                 <-- Điểm đăng ký DI (Kế thừa ModuleDefinition)
 ```
 
 ---
 
-## 6. Chiến lược Quản lý Database & DevOps Migration Bundle
+## 5. Quy Chuẩn An Ninh Phòng Thủ Đa Tầng (OWASP Top 10)
 
-Dự án chọn **Giải pháp 1: EF Core Migration Bundles**:
-
-### Vì sao chọn Migration Bundle?
-1. **Zero-downtime & Multi-replica safe**: Đóng gói các file migration thành file nhị phân thực thi độc lập (executable binary). File này được chạy trước khi Pods/Containers mới khởi động (chạy qua K8s InitContainer hoặc bước CI/CD Deploy).
-2. **Không gây Race Condition**: Không kích hoạt migrate tự động khi app boot trên Production.
-3. **Lịch sử riêng biệt**: Mỗi module tự quản lý bảng `__EFMigrationsHistory` trong schema của chính mình:
-   ```csharp
-   npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "identity");
-   ```
-
-### Lệnh đóng gói Bundle mẫu cho CI/CD:
-```powershell
-dotnet ef migrations bundle `
-  -p src/Modules/Identity/SkillBridge.Modules.Identity `
-  -s src/Bootstrapper/SkillBridge.Api `
-  -c IdentityDbContext `
-  -o ./bundles/identity-migrator.exe `
-  -f
-```
-
----
-
-*Tài liệu này được ban hành bởi DevOps & Architecture Lead. Mọi đề xuất thay đổi kiến trúc cần được thảo luận qua ADR (Architecture Decision Record).*
+1. **SQL Injection**: 100% truy vấn được tham số hóa thông qua EF Core 10 LINQ queries.
+2. **IDOR Prevention**: Mọi API cập nhật tài nguyên đều kiểm tra quyền sở hữu `ICurrentUser.UserId == entity.OwnerId`.
+3. **Race Condition Prevention**: Số dư ví và trạng thái thanh toán dùng khóa bi quan `SELECT FOR UPDATE` kết hợp `xmin` Optimistic Concurrency.
+4. **Webhook Security**: Kiểm tra bắt buộc Chữ ký số (HMAC-SHA256 / SHA512), Kiểm tra Timestamp (< 300s chống Replay Attack), và Idempotency Key qua bảng `payment_webhooks_audit`.
+5. **Anti-Platform Bypass (Chống ăn mảnh)**: Lọc nội dung chat tự động bắt cờ các mẫu SĐT, Zalo, Số tài khoản ngân hàng để bảo vệ giao dịch qua sàn.
