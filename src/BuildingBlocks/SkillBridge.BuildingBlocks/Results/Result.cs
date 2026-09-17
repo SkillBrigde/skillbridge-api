@@ -1,6 +1,11 @@
 namespace SkillBridge.BuildingBlocks.Results;
 
-public class Result
+public interface IResultResponse<TSelf> where TSelf : IResultResponse<TSelf>
+{
+    static abstract TSelf FromError(Error error);
+}
+
+public class Result : IResultResponse<Result>
 {
     protected internal Result(bool isSuccess, Error error)
     {
@@ -19,14 +24,16 @@ public class Result
 
     public static Result Success() => new(true, Error.None);
     public static Result Failure(Error error) => new(false, error);
+    public static Result FromError(Error error) => Failure(error);
 
     public static Result<TValue> Success<TValue>(TValue value) => new(value, true, Error.None);
     public static Result<TValue> Failure<TValue>(Error error) => new(default, false, error);
 }
 
-public class Result<TValue> : Result
+public class Result<TValue> : Result, IResultResponse<Result<TValue>>
 {
     private readonly TValue? _value;
+    public new static Result<TValue> FromError(Error error) => Failure<TValue>(error);
 
     protected internal Result(TValue? value, bool isSuccess, Error error)
         : base(isSuccess, error)
