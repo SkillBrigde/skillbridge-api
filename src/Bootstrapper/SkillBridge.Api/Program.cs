@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
@@ -27,7 +28,24 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // 2. Cấu hình xử lý lỗi tập trung (ProblemDetails & Global Exception Handler)
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+{
+    context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
+    context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("strict-auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = Math.Clamp(builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 20), 1, 100),
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+});
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // 3. Cấu hình OpenAPI (Swagger & Scalar)
@@ -93,6 +111,9 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors("Default");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
@@ -102,7 +123,11 @@ if (app.Environment.IsDevelopment())
         options.WithTitle("SkillBridge Modular API");
     });
 
-    // Mỗi module tự khởi tạo và áp dụng migration độc lập (Encapsulated Initialization)
+}
+
+// Explicit opt-in: production migrations should run as a deployment step.
+if (builder.Configuration.GetValue<bool>("Database:ApplyMigrations"))
+{
     foreach (var module in modules)
     {
         await module.InitializeAsync(app.Services);
@@ -114,7 +139,10 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live")
 });
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // Root endpoint kiểm tra trạng thái chung của Host
 app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
