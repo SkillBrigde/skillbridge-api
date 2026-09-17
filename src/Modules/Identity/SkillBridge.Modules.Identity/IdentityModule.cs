@@ -1,13 +1,19 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.Modules.Identity.Application;
 using SkillBridge.Modules.Identity.Domain;
+using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Security;
 
 namespace SkillBridge.Modules.Identity;
 
@@ -18,80 +24,75 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Database")
-            ?? "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only";
+        services.AddDbContext<IdentityDbContext>(options => options.UseNpgsql(
+            configuration.GetConnectionString("Database"),
+            npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema)));
+        services.AddScoped<IIdentityData>(provider => provider.GetRequiredService<IdentityDbContext>());
+        services.AddScoped<IdentityService>();
+        services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+        services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
+        services.AddScoped<SessionValidationEvents>();
+        services.AddOptions<JwtOptions>().Bind(configuration.GetSection("Jwt"))
+            .Validate(x => Encoding.UTF8.GetByteCount(x.SigningKey) >= 32, "Jwt:SigningKey requires at least 32 UTF-8 bytes.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Issuer) && !string.IsNullOrWhiteSpace(x.Audience),
+                "Jwt issuer and audience are required.").ValidateOnStart();
 
-        services.AddDbContext<IdentityDbContext>(options =>
-        {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((options, jwt) =>
             {
-                // Đặt bảng lịch sử migration vào đúng schema 'identity' của module
-                npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema);
+                options.MapInboundClaims = false;
+                options.EventsType = typeof(SessionValidationEvents);
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = jwt.Value.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwt.Value.Audience,
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+                    ValidateIssuerSigningKey = true,
+                    RequireSignedTokens = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Value.SigningKey)),
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                    NameClaimType = "sub",
+                    RoleClaimType = "role"
+                };
             });
-        });
+        services.AddAuthorizationBuilder()
+            .AddPolicy("Admin", policy => policy.RequireRole("Admin", "SuperAdmin"));
+        services.AddHealthChecks().AddCheck<IdentityDatabaseHealthCheck>("identity-database", tags: ["ready"]);
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Kế thừa probe endpoint: GET /api/v1/identity/_module
         base.MapEndpoints(endpoints);
-
-        var group = endpoints.MapGroup($"/api/v1/{RoutePrefix}").WithTags(Name);
-
-        // Endpoint test nghiệp vụ mẫu
-        group.MapGet("/users/me", () =>
-        {
-            var sampleUser = User.Create("mentor@skillbridge.dev", "Nguyen Van A", "Mentor");
-
-            return Microsoft.AspNetCore.Http.Results.Ok(new
-            {
-                sampleUser.Id,
-                sampleUser.Email,
-                sampleUser.FullName,
-                sampleUser.Role,
-                sampleUser.CreatedAtUtc
-            });
-        });
-
-        // Endpoint lấy danh sách users từ database
-        group.MapGet("/users", async (IdentityDbContext dbContext) =>
-        {
-            var users = await dbContext.Users
-                .AsNoTracking()
-                .Select(u => new
-                {
-                    u.Id,
-                    u.Email,
-                    u.FullName,
-                    u.Role,
-                    u.IsActive,
-                    u.CreatedAtUtc
-                })
-                .ToListAsync();
-
-            return Microsoft.AspNetCore.Http.Results.Ok(users);
-        });
+        endpoints.MapIdentityEndpoints();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)
     {
-        using var scope = serviceProvider.CreateScope();
-        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("IdentityModule");
+        await using var scope = serviceProvider.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    }
+}
 
+internal sealed class IdentityDatabaseHealthCheck(IServiceScopeFactory scopes) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         try
         {
-            var dbContext = scope.ServiceProvider.GetService<IdentityDbContext>();
-            if (dbContext is not null)
-            {
-                logger.LogInformation("Đang kiểm tra và áp dụng pending migrations cho Module Identity...");
-                await dbContext.Database.MigrateAsync();
-                logger.LogInformation("Migrations cho Module Identity đã hoàn tất.");
-            }
+            // Query a migrated column as well as connectivity, so an uninitialized DB is not ready.
+            await db.Users.Select(x => x.SecurityStamp).Take(1).ToListAsync(cancellationToken);
+            return HealthCheckResult.Healthy();
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Không thể tự động migrate IdentityDbContext. Hãy kiểm tra PostgreSQL container đang chạy.");
+            return HealthCheckResult.Unhealthy("Identity database is unavailable or requires migrations.", ex);
         }
     }
 }
