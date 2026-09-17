@@ -16,11 +16,14 @@ public class CorrelationIdMiddleware
     {
         // 1. Kiểm tra xem client có gửi kèm Header X-Correlation-ID không, nếu không thì tự sinh mới
         if (!context.Request.Headers.TryGetValue(CorrelationIdHeaderName, out StringValues correlationId) ||
-            string.IsNullOrWhiteSpace(correlationId))
+            correlationId.Count != 1 || correlationId.ToString().Length > 64 ||
+            string.IsNullOrWhiteSpace(correlationId) ||
+            !correlationId.ToString().All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
         {
             correlationId = Guid.NewGuid().ToString("N");
             context.Request.Headers[CorrelationIdHeaderName] = correlationId;
         }
+        context.TraceIdentifier = correlationId.ToString();
 
         // 2. Gán Correlation ID vào Response Header để client đối chiếu khi cần
         context.Response.OnStarting(() =>

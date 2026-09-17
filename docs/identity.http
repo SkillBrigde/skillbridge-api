@@ -1,0 +1,45 @@
+@baseUrl = http://localhost:5259
+@accessToken = replace-with-login-access-token
+@refreshToken = replace-with-login-refresh-token
+@sessionId = replace-with-login-session-id
+
+### Register
+POST {{baseUrl}}/api/v1/identity/auth/register
+Content-Type: application/json
+
+{
+  "email": "mentee@example.com",
+  "password": "Example123!",
+  "fullName": "Example Mentee",
+  "role": "Mentee"
+}
+
+### Login (save tokens on the BFF server)
+POST {{baseUrl}}/api/v1/identity/auth/login
+Content-Type: application/json
+
+{
+  "email": "mentee@example.com",
+  "password": "Example123!"
+}
+
+### Current user
+GET {{baseUrl}}/api/v1/identity/users/me
+Authorization: Bearer {{accessToken}}
+
+### Rotate refresh token once
+POST {{baseUrl}}/api/v1/identity/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}",
+  "sessionId": "{{sessionId}}"
+}
+
+### Active sessions
+GET {{baseUrl}}/api/v1/sessions
+Authorization: Bearer {{accessToken}}
+
+### Logout
+POST {{baseUrl}}/api/v1/identity/auth/logout
+Authorization: Bearer {{accessToken}}

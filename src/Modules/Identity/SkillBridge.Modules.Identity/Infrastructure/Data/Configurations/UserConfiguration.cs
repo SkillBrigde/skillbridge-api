@@ -11,6 +11,9 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("users");
 
         builder.HasKey(u => u.Id);
+        builder.Property(u => u.PasswordHash).HasMaxLength(512);
+        builder.Property(u => u.AvatarUrl).HasMaxLength(2048);
+        builder.Property(u => u.Roles).HasColumnType("text[]").IsRequired();
 
         builder.Property(u => u.Email)
             .IsRequired()

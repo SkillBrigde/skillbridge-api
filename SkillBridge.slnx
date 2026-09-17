@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/SkillBridge.Tests/SkillBridge.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Bootstrapper/">
     <Project Path="src/Bootstrapper/SkillBridge.Api/SkillBridge.Api.csproj" />

@@ -1,10 +1,12 @@
 using FluentValidation;
 using MediatR;
+using SkillBridge.BuildingBlocks.Results;
 
 namespace SkillBridge.BuildingBlocks.Behaviors;
 
 public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
+    where TResponse : IResultResponse<TResponse>
 {
     private readonly IEnumerable<IValidator<TRequest>> _validators;
 
@@ -35,7 +37,9 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 
         if (failures.Count != 0)
         {
-            throw new ValidationException(failures);
+            return TResponse.FromError(new ValidationError(failures
+                .GroupBy(f => f.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).Distinct().ToArray())));
         }
 
         return await next();

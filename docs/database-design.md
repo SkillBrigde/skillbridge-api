@@ -1,5 +1,7 @@
 # Thiết Kế Cơ Sở Dữ Liệu Chuẩn Doanh Nghiệp (Enterprise Database Blueprint)
 
+> Đây là thiết kế mục tiêu. Database hiện tại do EF migrations quản lý; Docker init chỉ tạo schema. Xem [trạng thái triển khai và lưu ý nâng cấp](backend-progress.md).
+
 Tài liệu này cung cấp thiết kế chi tiết toàn bộ kiến trúc Cơ sở dữ liệu PostgreSQL cho 7 Bounded Contexts (24 Bảng Chuyên Trách) của nền tảng **SkillBridge**.  
 Toàn bộ mã DDL SQL đã được chuẩn hóa và quản lý bằng EF Core Migrations phân lập ranh giới.
 

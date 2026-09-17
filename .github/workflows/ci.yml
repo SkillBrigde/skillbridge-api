@@ -13,6 +13,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: skillbridge
+          POSTGRES_PASSWORD: skillbridge
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U skillbridge"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SKILLBRIDGE_TEST_DATABASE: Host=localhost;Database=postgres;Username=skillbridge;Password=skillbridge
 
     steps:
       - name: Checkout
@@ -31,3 +45,6 @@ jobs:
 
       - name: Verify formatting
         run: dotnet format SkillBridge.slnx --verify-no-changes --no-restore
+
+      - name: Test
+        run: dotnet test SkillBridge.slnx --configuration Release --no-build --logger trx

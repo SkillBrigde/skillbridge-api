@@ -1,5 +1,7 @@
 # Identity API Contract
 
+> Đây là hợp đồng cũ. Identity hiện triển khai theo Excel v2 (refresh token trong JSON, status string, roles[]). Xem [trạng thái và API hiện có](../backend-progress.md) trước khi tích hợp. Google/reset password chưa được triển khai.
+
 Tài liệu đặc tả API cho module Identity của dự án SkillBridge (Kiến trúc .NET 10 Modular Monolith).
 
 ## Module Responsibility
