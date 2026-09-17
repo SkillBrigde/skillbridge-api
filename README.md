@@ -2,6 +2,8 @@
 
 Hệ thống Backend xây dựng theo kiến trúc **Modular Monolith** trên nền tảng **.NET 10** cho nền tảng kết nối người hướng dẫn (Mentoring Platform) SkillBridge.
 
+**Trạng thái thực tế:** Identity/Sessions đã có API xác thực và quản lý phiên; 9 module còn lại là skeleton. Xem [tiến độ và giới hạn triển khai](docs/backend-progress.md) và [request mẫu](docs/identity.http). Các mô tả 65 API/24 bảng dưới đây là thiết kế mục tiêu, chưa phải tất cả đã có trong code.
+
 ---
 
 ## 🏛️ Kiến trúc hệ thống
@@ -39,7 +41,13 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 - [Docker Desktop](https://www.docker.com/)
 
 ### 2. Khởi động hạ tầng cục bộ (Database, Broker, Cache)
-Chạy lệnh duy nhất để bật PostgreSQL 17 (kèm sẵn 7 schemas / 24 bảng), RabbitMQ và Redis:
+Sao chép `.env.example` thành `.env` nếu chưa có. Đặt `Jwt__SigningKey` bằng khóa ngẫu nhiên tối thiểu 32 byte. Có thể sinh khóa bằng PowerShell:
+
+```powershell
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+Chạy PostgreSQL 17, RabbitMQ và Redis (init chỉ tạo schema, bảng được tạo bằng EF migration):
 
 ```powershell
 docker compose up -d
@@ -58,6 +66,10 @@ dotnet restore
 dotnet build
 dotnet run --project src/Bootstrapper/SkillBridge.Api
 ```
+
+Development tự chạy migration và dừng khởi động nếu migration thất bại. Database từ DDL cũ cần chuyển đổi riêng; xem [hướng dẫn database](docs/backend-progress.md#database-và-nâng-cấp). Production mặc định không tự migrate.
+
+Launch profile mặc định dùng HTTP `5259`, HTTPS `7153`. Scalar tại [http://localhost:5259/scalar/v1](http://localhost:5259/scalar/v1).
 
 ### 4. Tài liệu API trực quan & Health Checks
 
