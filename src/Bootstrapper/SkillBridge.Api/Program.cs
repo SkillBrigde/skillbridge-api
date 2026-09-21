@@ -80,6 +80,7 @@ List<IModule> modules = [
 // 7. Cấu hình Enterprise BuildingBlocks (MediatR, FluentValidation, EventBus, Interceptors)
 var moduleAssemblies = modules.Select(m => m.GetType().Assembly).Distinct().ToArray();
 builder.Services.AddBuildingBlocks(builder.Configuration, moduleAssemblies);
+builder.Services.AddJwtSecurity(builder.Configuration);
 
 // 8. Đăng ký dịch vụ (DI) của từng Module độc lập
 foreach (var module in modules)
@@ -93,6 +94,8 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors("Default");
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

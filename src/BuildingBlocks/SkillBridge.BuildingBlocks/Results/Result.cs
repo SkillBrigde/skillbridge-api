@@ -38,6 +38,11 @@ public class Result<TValue> : Result
         ? _value!
         : throw new InvalidOperationException("Không thể truy xuất Value khi Result thất bại.");
 
+    public static Result<TValue> Success(TValue value) => Result.Success(value);
+    public static new Result<TValue> Failure(Error error) => Result.Failure<TValue>(error);
+
     public static implicit operator Result<TValue>(TValue? value) =>
-        value is not null ? Success(value) : Failure<TValue>(Error.NullValue);
+        value is not null ? Success(value) : Failure(Error.NullValue);
+
+    public static implicit operator Result<TValue>(Error error) => Failure(error);
 }
