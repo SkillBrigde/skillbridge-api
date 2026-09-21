@@ -1,12 +1,10 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SkillBridge.BuildingBlocks.Contracts;
-using SkillBridge.Modules.Identity.Domain;
+using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
 
 namespace SkillBridge.Modules.Identity;
@@ -36,41 +34,9 @@ public sealed class IdentityModule : ModuleDefinition
         // Kế thừa probe endpoint: GET /api/v1/identity/_module
         base.MapEndpoints(endpoints);
 
-        var group = endpoints.MapGroup($"/api/v1/{RoutePrefix}").WithTags(Name);
-
-        // Endpoint test nghiệp vụ mẫu
-        group.MapGet("/users/me", () =>
-        {
-            var sampleUser = User.Create("mentor@skillbridge.dev", "Nguyen Van A", "Mentor");
-
-            return Microsoft.AspNetCore.Http.Results.Ok(new
-            {
-                sampleUser.Id,
-                sampleUser.Email,
-                sampleUser.FullName,
-                sampleUser.Role,
-                sampleUser.CreatedAtUtc
-            });
-        });
-
-        // Endpoint lấy danh sách users từ database
-        group.MapGet("/users", async (IdentityDbContext dbContext) =>
-        {
-            var users = await dbContext.Users
-                .AsNoTracking()
-                .Select(u => new
-                {
-                    u.Id,
-                    u.Email,
-                    u.FullName,
-                    u.Role,
-                    u.IsActive,
-                    u.CreatedAtUtc
-                })
-                .ToListAsync();
-
-            return Microsoft.AspNetCore.Http.Results.Ok(users);
-        });
+        // Đăng ký các endpoints thực tế của Identity module
+        endpoints.MapAuthEndpoints();
+        endpoints.MapUsersEndpoints();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)

@@ -4,32 +4,101 @@ namespace SkillBridge.Modules.Identity.Domain;
 
 public sealed class User : AggregateRoot<Guid>
 {
-    // Private setter để bảo vệ dữ liệu, không cho phép gán bừa bãi từ bên ngoài
     public string Email { get; private set; } = default!;
+    public string NormalizedEmail { get; private set; } = default!;
+    public string PasswordHash { get; private set; } = default!;
+    public string SecurityStamp { get; private set; } = default!;
     public string FullName { get; private set; } = default!;
-    public string Role { get; private set; } = default!;
-    public bool IsActive { get; private set; }
+    public string? PhoneNumber { get; private set; }
+    public string? AvatarUrl { get; private set; }
+    public bool IsEmailConfirmed { get; private set; }
+    public bool IsPhoneConfirmed { get; private set; }
+    public bool TwoFactorEnabled { get; private set; }
+    public DateTimeOffset? LockoutEndUtc { get; private set; }
+    public bool LockoutEnabled { get; private set; } = true;
+    public int AccessFailedCount { get; private set; }
+    public string Role { get; private set; } = "Mentee";
+    public bool IsActive { get; private set; } = true;
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public DateTimeOffset? UpdatedAtUtc { get; private set; }
 
-    // Constructor rỗng bắt buộc cho ORM (EF Core) sau này
     private User() { }
 
-    // Factory method để kiểm soát logic tạo mới một User hợp lệ
-    public static User Create(string email, string fullName, string role)
+    public static User Create(
+        string email,
+        string passwordHash,
+        string fullName,
+        string role = "Mentee",
+        string? phoneNumber = null,
+        string? avatarUrl = null)
     {
-        var user = new User
+        var normalizedEmail = email.Trim().ToUpperInvariant();
+
+        return new User
         {
             Id = Guid.NewGuid(),
             Email = email.Trim().ToLowerInvariant(),
+            NormalizedEmail = normalizedEmail,
+            PasswordHash = passwordHash,
+            SecurityStamp = Guid.NewGuid().ToString("N"),
             FullName = fullName.Trim(),
+            PhoneNumber = phoneNumber?.Trim(),
+            AvatarUrl = avatarUrl,
             Role = role,
             IsActive = true,
+            IsEmailConfirmed = false,
+            LockoutEnabled = true,
+            AccessFailedCount = 0,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
+    }
 
-        // Sau này khi có UserRegisteredDomainEvent, bạn có thể gọi:
-        // user.RaiseDomainEvent(new UserRegisteredDomainEvent(user.Id, user.Email));
+    public void UpdateProfile(string fullName, string? phoneNumber, string? avatarUrl)
+    {
+        FullName = fullName.Trim();
+        PhoneNumber = phoneNumber?.Trim();
+        AvatarUrl = avatarUrl;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
 
-        return user;
+    public void ChangePassword(string newPasswordHash)
+    {
+        PasswordHash = newPasswordHash;
+        SecurityStamp = Guid.NewGuid().ToString("N");
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void RecordFailedLogin(int maxFailedAttempts = 5, TimeSpan? lockoutDuration = null)
+    {
+        if (!LockoutEnabled) return;
+
+        AccessFailedCount++;
+        if (AccessFailedCount >= maxFailedAttempts)
+        {
+            var duration = lockoutDuration ?? TimeSpan.FromMinutes(15);
+            LockoutEndUtc = DateTimeOffset.UtcNow.Add(duration);
+        }
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void ResetFailedLogin()
+    {
+        AccessFailedCount = 0;
+        LockoutEndUtc = null;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public bool IsLockedOut => LockoutEndUtc.HasValue && LockoutEndUtc.Value > DateTimeOffset.UtcNow;
+
+    public void SetStatus(bool isActive)
+    {
+        IsActive = isActive;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void ConfirmEmail()
+    {
+        IsEmailConfirmed = true;
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 }
