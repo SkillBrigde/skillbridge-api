@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,30 @@ public sealed class IdentityModule : ModuleDefinition
                 // Đặt bảng lịch sử migration vào đúng schema 'identity' của module
                 npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema);
             });
+        });
+
+        services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+        {
+            options.Events.OnTokenValidated = async context =>
+            {
+                var rawId = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                    ?? context.Principal?.FindFirst("sub")?.Value;
+                var stamp = context.Principal?.FindFirst("security_stamp")?.Value;
+                if (!Guid.TryParse(rawId, out var userId) || string.IsNullOrEmpty(stamp))
+                {
+                    context.Fail("Invalid session.");
+                    return;
+                }
+
+                var dbContext = context.HttpContext.RequestServices.GetRequiredService<IdentityDbContext>();
+                var valid = await dbContext.Users.AsNoTracking().AnyAsync(
+                    user => user.Id == userId && user.IsActive && user.SecurityStamp == stamp,
+                    context.HttpContext.RequestAborted);
+                if (!valid)
+                {
+                    context.Fail("Session revoked.");
+                }
+            };
         });
     }
 
