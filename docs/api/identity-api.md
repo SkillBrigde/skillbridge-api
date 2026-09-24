@@ -2,6 +2,15 @@
 
 Tài liệu đặc tả API cho module Identity của dự án SkillBridge (Kiến trúc .NET 10 Modular Monolith).
 
+## Trạng thái triển khai (2026-09-23)
+
+- Đã triển khai 10 endpoint bên dưới, ngoại trừ `forgot-password` và `reset-password`; hai endpoint khôi phục mật khẩu chưa có dịch vụ gửi email/token và chưa được map.
+- `UserRegisteredIntegrationEvent` được ghi cùng giao dịch tạo user vào `identity.outbox_messages`. Dispatcher và consumer Profiles chưa được triển khai, do đó chưa tự động tạo profile.
+- Migration `CompleteIdentitySecurity` bổ sung schema xác thực sau migration đầu tiên. User từ schema cũ được giữ nguyên ID/thông tin, chuẩn hóa email và vô hiệu hóa vì chưa có mật khẩu. Email cũ trùng nhau sau chuẩn hóa cần được xử lý trước khi migration thành công; migration không tự gộp/xóa tài khoản.
+- Mỗi JWT mang security stamp; khi đổi mật khẩu, vô hiệu hóa tài khoản hoặc đăng xuất bằng cookie thuộc tài khoản đang xác thực, mọi access token cũ mất hiệu lực ngay và mọi refresh token của tài khoản bị thu hồi. Đăng xuất áp dụng cho tất cả thiết bị/phiên của tài khoản.
+- Refresh token và mã thay thế chỉ được lưu dưới dạng SHA-256; rotation là một lần sử dụng và giữ nguyên hạn tuyệt đối 7 ngày từ lần đăng nhập. Token hết hạn trả `401`; tái sử dụng token đã thu hồi (kể cả yêu cầu rotation đồng thời thua cuộc) trả `401` và vô hiệu hóa mọi access/refresh token của tài khoản. Client phải tuần tự hóa refresh và đăng nhập lại sau khi phát hiện replay.
+- Nhóm `/auth` giới hạn 10 yêu cầu/phút cho mỗi địa chỉ IP và đường dẫn, trả `429` khi vượt giới hạn. BFF cần chuyển tiếp cookie `refreshToken` khi gọi refresh/logout qua HTTPS.
+
 ## Module Responsibility
 Xác thực, phân quyền, đăng ký, đăng nhập, cấp phát JWT Tokens.
 
@@ -16,16 +25,14 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 
 ```json
 {
-  "type": "https://tools.ietf.org/html/rfc7807",
-  "title": "Validation Error",
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Validation.Failed",
   "status": 400,
-  "detail": "One or more validation errors occurred.",
+  "detail": "Một hoặc nhiều trường dữ liệu không hợp lệ.",
   "instance": "/api/v1/identity/auth/register",
-  "extensions": {
-    "correlationId": "5f3a123b-a3b4-4b5c",
-    "errors": {
-      "password": ["Mật khẩu phải chứa ít nhất một chữ viết hoa."]
-    }
+  "correlationId": "5f3a123b-a3b4-4b5c",
+  "errors": {
+    "Password": ["Mật khẩu phải chứa ít nhất 1 chữ hoa."]
   }
 }
 ```
@@ -38,12 +45,13 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 
 - **Method**: `POST`
 - **URL**: `/api/v1/identity/auth/register`
-- **Description**: Đăng ký tài khoản mới (Mentor hoặc Mentee). Hệ thống sẽ tự động publish `UserRegisteredIntegrationEvent` để module Profiles tạo profile rỗng cho người dùng.
+- **Description**: Đăng ký tài khoản mới (Mentor hoặc Mentee), lưu `UserRegisteredIntegrationEvent` vào outbox để consumer Profiles xử lý khi được triển khai.
 - **Auth Requirement**: `Anonymous`
 
 **Business Rules:**
 - `email`: Phải đúng định dạng và duy nhất trong hệ thống.
 - `password`: Tối thiểu 8 ký tự, phải có chữ hoa (uppercase), chữ thường (lowercase), số (number), và ký tự đặc biệt (special char).
+- Giới hạn BCrypt: mật khẩu tối đa 72 byte UTF-8; quy tắc này cũng áp dụng khi đổi mật khẩu. `fullName` tối đa 200 ký tự, `email` tối đa 256 ký tự; dữ liệu văn bản lưu vào PostgreSQL không được chứa ký tự NUL.
 - `role`: Chỉ nhận `Mentor` hoặc `Mentee`.
 
 **Request Body:**
@@ -125,6 +133,8 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 
 **Request Body:** Không có. Token được đọc từ Cookie `refreshToken`.
 
+Token thay thế giữ nguyên thời điểm hết hạn trong cơ sở dữ liệu của token ban đầu; thời gian giữ cookie không gia hạn phiên. Tái sử dụng token đã thu hồi vô hiệu hóa mọi phiên của tài khoản, kể cả token vừa được cấp bởi yêu cầu refresh đồng thời.
+
 **Responses:**
 - `200 OK`: Thành công.
   - **Headers**: `Set-Cookie: refreshToken={new_token}; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/identity/auth; Max-Age=604800`
@@ -142,10 +152,12 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 
 - **Method**: `POST`
 - **URL**: `/api/v1/identity/auth/logout`
-- **Description**: Đăng xuất, vô hiệu hóa (revoke) refresh token hiện tại và xóa cookie.
+- **Description**: Đăng xuất mọi phiên của tài khoản, vô hiệu hóa ngay các access token và refresh token, rồi xóa cookie hiện tại.
 - **Auth Requirement**: `Authenticated`
 
 **Request Body:** Không có.
+
+Cookie phải chứa một refresh token thuộc tài khoản đang xác thực để thu hồi phiên. Cookie thiếu, không được nhận diện hoặc thuộc tài khoản khác vẫn trả `204` và xóa cookie, nhưng không thay đổi phiên trên máy chủ.
 
 **Responses:**
 - `204 No Content`: Thành công.
@@ -225,6 +237,8 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 - `204 No Content`: Thành công.
 - `400 Bad Request`: Mật khẩu hiện tại không đúng, hoặc mật khẩu mới vi phạm rule.
 
+Thành công đồng thời thu hồi mọi refresh token của người dùng, xóa cookie hiện tại và đổi security stamp. Client phải đăng nhập lại.
+
 ---
 
 ### 8. Quên mật khẩu
@@ -291,8 +305,10 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | page | int | 1 | Trang số mấy |
-| pageSize | int | 10 | Số lượng trên mỗi trang |
-| searchTerm | string | null | Từ khóa tìm kiếm theo email hoặc fullName |
+| pageSize | int | 10 | Số lượng trên mỗi trang, từ 1 đến 100 |
+| searchTerm | string | null | Từ khóa tìm kiếm theo email hoặc fullName, tối đa 256 ký tự |
+
+`page` phải lớn hơn 0; tổ hợp `page`/`pageSize` vượt giới hạn offset 32-bit trả `400`. Người đã đăng nhập không có quyền Admin nhận `403` ở cả ba endpoint quản trị.
 
 **Responses:**
 - `200 OK`: Thành công.
@@ -338,6 +354,7 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 
 **Responses:**
 - `204 No Content`: Thành công.
+- `403 Forbidden`: Admin không được tự vô hiệu hóa tài khoản của mình.
 - `404 Not Found`: Không tìm thấy userId.
 
 ---
