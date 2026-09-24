@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
@@ -27,8 +28,24 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // 2. Cấu hình xử lý lỗi tập trung (ProblemDetails & Global Exception Handler)
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+{
+    context.ProblemDetails.Instance = context.HttpContext.Request.Path;
+    context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+});
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: $"{context.Connection.RemoteIpAddress}:{context.GetEndpoint()?.DisplayName}",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+});
 
 // 3. Cấu hình OpenAPI (Swagger & Scalar)
 builder.Services.AddOpenApi();
@@ -61,7 +78,8 @@ builder.Services.AddCors(options =>
 // 5. Cấu hình Health Checks
 builder.Services
     .AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
 // 6. Danh sách toàn bộ 10 Bounded Context Modules trong hệ thống
 List<IModule> modules = [
@@ -96,6 +114,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -117,7 +136,10 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live")
 });
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // Root endpoint kiểm tra trạng thái chung của Host
 app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
