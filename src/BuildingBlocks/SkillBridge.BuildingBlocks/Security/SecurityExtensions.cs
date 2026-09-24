@@ -12,6 +12,15 @@ public static class SecurityExtensions
     {
         var jwtSettings = new JwtSettings();
         configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
+        if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey)
+            || Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32
+            || string.IsNullOrWhiteSpace(jwtSettings.Issuer)
+            || string.IsNullOrWhiteSpace(jwtSettings.Audience)
+            || jwtSettings.AccessTokenExpirationMinutes is <= 0 or > 60
+            || jwtSettings.RefreshTokenExpirationDays is <= 0 or > 90)
+        {
+            throw new InvalidOperationException("Configure Jwt with a secret of at least 32 bytes, issuer, audience, access lifetime 1–60 minutes and refresh lifetime 1–90 days.");
+        }
         services.AddSingleton(jwtSettings);
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -24,8 +33,7 @@ public static class SecurityExtensions
         })
         .AddJwtBearer(options =>
         {
-            options.RequireHttpsMetadata = false;
-            options.SaveToken = true;
+            options.MapInboundClaims = false;
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -35,6 +43,9 @@ public static class SecurityExtensions
                 ValidIssuer = jwtSettings.Issuer,
                 ValidAudience = jwtSettings.Audience,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                NameClaimType = "name",
+                RoleClaimType = "role",
                 ClockSkew = TimeSpan.Zero
             };
         });
