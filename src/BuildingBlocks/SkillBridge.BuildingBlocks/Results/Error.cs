@@ -16,12 +16,23 @@ public record Error(string Code, string Description, ErrorType Type)
 
     public static Error Validation(string code, string description) =>
         new(code, description, ErrorType.Validation);
+
+    public static Error Unauthorized(string code, string description) =>
+        new(code, description, ErrorType.Unauthorized);
+
+    public static Error Forbidden(string code, string description) =>
+        new(code, description, ErrorType.Forbidden);
 }
+
+public sealed record ValidationError(IReadOnlyDictionary<string, string[]> Errors)
+    : Error("Validation.Failed", "Một hoặc nhiều trường dữ liệu không hợp lệ.", ErrorType.Validation);
 
 public enum ErrorType
 {
     Failure = 0,
     Validation = 1,
     NotFound = 2,
-    Conflict = 3
+    Conflict = 3,
+    Unauthorized = 4,
+    Forbidden = 5
 }
