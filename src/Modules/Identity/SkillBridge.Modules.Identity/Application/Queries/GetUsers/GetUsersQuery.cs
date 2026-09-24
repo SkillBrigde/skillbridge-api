@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.CQRS;
 using SkillBridge.BuildingBlocks.Pagination;
@@ -9,11 +10,25 @@ namespace SkillBridge.Modules.Identity.Application.Queries.GetUsers;
 
 public sealed record GetUsersQuery(
     int PageNumber = 1,
-    int PageSize = 20,
+    int PageSize = 10,
     string? SearchTerm = null,
     string? Role = null,
     bool? IsActive = null
 ) : IQuery<PagedResult<UserDto>>;
+
+public sealed class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
+{
+    public GetUsersQueryValidator()
+    {
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, 100);
+        RuleFor(query => query).Must(query => ((long)query.PageNumber - 1) * query.PageSize <= int.MaxValue)
+            .WithMessage("Trang yêu cầu vượt quá giới hạn phân trang.");
+        RuleFor(query => query.SearchTerm).MaximumLength(256)
+            .Must(term => term is null || !term.Contains('\0'));
+        RuleFor(query => query.Role).Must(role => role is null or "Admin" or "Mentor" or "Mentee");
+    }
+}
 
 public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedResult<UserDto>>
 {
@@ -30,7 +45,7 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            var term = request.SearchTerm.Trim().ToLower();
+            var term = request.SearchTerm.Trim().ToLowerInvariant();
             query = query.Where(u => u.Email.ToLower().Contains(term) || u.FullName.ToLower().Contains(term));
         }
 
@@ -46,11 +61,12 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var page = request.PageNumber < 1 ? 1 : request.PageNumber;
-        var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
+        var page = request.PageNumber;
+        var pageSize = request.PageSize;
 
         var items = await query
             .OrderByDescending(u => u.CreatedAtUtc)
+            .ThenBy(u => u.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(u => new UserDto(

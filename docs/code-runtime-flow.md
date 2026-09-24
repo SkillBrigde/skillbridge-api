@@ -1,5 +1,7 @@
 # Tài Liệu Chi Tiết Luồng Thực Thi Mã Nguồn (Codebase Runtime & Execution Flow)
 
+> **Cập nhật triển khai 23/09/2026:** Các ví dụ direct-DbContext phía dưới mô tả bản khung cũ. Luồng hiện tại: `DotEnv` → đăng ký JWT/validation/module → migrate Identity + Catalog ở Development → exception/correlation/CORS/authentication/authorization/rate limiter → endpoint. Identity gọi MediatR handler; Catalog gọi `CatalogService`. Validation dự kiến trả `Result`/`ValidationError`, không ném `ValidationException`. API users quản trị yêu cầu role `Admin`; JWT được kiểm tra trạng thái tài khoản và security stamp. Chi tiết trạng thái đã/chưa làm: [backend-progress.md](backend-progress.md).
+
 Tài liệu này giải thích chi tiết **vòng đời khởi động (Bootstrapping)** và **luồng xử lý một HTTP Request (Request Lifecycle)** qua từng file code trong hệ thống **SkillBridge API**.  
 Mục đích: Giúp các lập trình viên mới vào dự án có thể đọc hiểu chính xác code chạy từ đâu, qua những middleware nào, và xử lý dữ liệu ra sao.
 

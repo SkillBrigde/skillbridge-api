@@ -14,7 +14,7 @@ public sealed class Role : Entity<Guid>
     {
         return new Role
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             Name = name.Trim(),
             NormalizedName = name.Trim().ToUpperInvariant(),
             Description = description

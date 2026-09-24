@@ -25,7 +25,21 @@ public sealed class UpdateUserStatusCommandHandler : ICommandHandler<UpdateUserS
         }
 
         user.SetStatus(request.IsActive);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (!request.IsActive)
+            {
+                await _dbContext.RefreshTokens.Where(t => t.UserId == user.Id && t.RevokedAtUtc == null)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RevokedAtUtc, DateTimeOffset.UtcNow), cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(Error.Conflict("Identity.UserChanged", "Tài khoản vừa được cập nhật. Vui lòng thử lại."));
+        }
 
         return Result.Success();
     }

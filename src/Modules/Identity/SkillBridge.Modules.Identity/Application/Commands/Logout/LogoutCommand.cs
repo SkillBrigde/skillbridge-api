@@ -5,7 +5,7 @@ using SkillBridge.Modules.Identity.Infrastructure.Data;
 
 namespace SkillBridge.Modules.Identity.Application.Commands.Logout;
 
-public sealed record LogoutCommand(string? RefreshToken) : ICommand;
+public sealed record LogoutCommand(Guid UserId, string? RefreshToken) : ICommand;
 
 public sealed class LogoutCommandHandler : ICommandHandler<LogoutCommand>
 {
@@ -18,18 +18,17 @@ public sealed class LogoutCommandHandler : ICommandHandler<LogoutCommand>
 
     public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) || request.RefreshToken.Length > 512)
         {
             return Result.Success();
         }
 
+        var tokenHash = Domain.RefreshToken.Hash(request.RefreshToken);
         var token = await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, cancellationToken);
-
-        if (token != null && token.IsActive)
+            .FirstOrDefaultAsync(t => t.UserId == request.UserId && t.Token == tokenHash, cancellationToken);
+        if (token is not null)
         {
-            token.Revoke();
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.RevokeSessionsAsync(request.UserId, token.SecurityStamp, cancellationToken);
         }
 
         return Result.Success();

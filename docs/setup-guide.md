@@ -109,6 +109,18 @@ docker compose down -v
 
 ## 4. Cấu hình ứng dụng
 
+`global.json` chấp nhận .NET SDK 10.0.100 trở lên trong dòng 10.0 (`latestFeature`); mã nguồn dùng C# 13. Không cần cài đúng SDK 10.0.400.
+
+Database mới dùng **EF migrations làm nguồn tạo bảng duy nhất**. `scripts/init-db/01-init-schemas.sql` là blueprint tham khảo, không được Docker tự chạy. Nếu volume cũ đã chạy blueprint, không áp dụng chồng migrations hoặc xóa volume có dữ liệu: sao lưu và đối chiếu schema trước khi chuyển đổi. Dùng database trống riêng để phát triển/kiểm thử nếu chưa có phương án chuyển dữ liệu.
+
+Database từng chạy `20260916144706_IdentityAuthentication` từ prototype `feat/dang` cũng cần chuyển đổi riêng: schema, vai trò, session và hash PBKDF2 khác bản hiện tại dùng BCrypt. Migration này chỉ hỗ trợ database mới hoặc nâng cấp `20260911052416_Initial_Identity` từ `main`; xem [phạm vi thay thế prototype](backend-progress.md#thay-thế-prototype-trên-featdang). Không xóa database cũ hay chạy chồng migrations.
+
+Môi trường Development tự áp dụng migrations của Identity và Catalog. Production phải áp dụng migrations trước khi nhận traffic và đặt `Jwt__SecretKey` riêng (ít nhất 32 byte ngẫu nhiên); khóa mẫu chỉ có trong `appsettings.Development.json`. Probe `/health/ready` kiểm tra kết nối và migrations của hai module đã có persistence, chưa xác nhận RabbitMQ/Redis.
+
+Cookie refresh luôn `Secure`; luồng login/refresh qua browser phải dùng HTTPS hoặc BFF HTTPS. HTTP local chỉ phù hợp với HTTP client kiểm thử có quản lý cookie rõ ràng.
+
+Để sinh migration, chạy `dotnet tool restore --tool-manifest dotnet-tools.json`, rồi dùng `dotnet ef migrations add <Name> --project <ModuleProject> --startup-project src/Bootstrapper/SkillBridge.Api --context <ModuleDbContext> --output-dir Infrastructure/Migrations`. Chạy công cụ với `ASPNETCORE_ENVIRONMENT=Development` ở máy local; không đặt khóa JWT production vào câu lệnh hay mã nguồn.
+
 1. **Biến môi trường**: Tạo file `.env` từ file mẫu:
    ```powershell
    Copy-Item .env.example .env
@@ -170,6 +182,8 @@ Khi ứng dụng chạy ở môi trường `Development`, bạn có thể truy c
 ---
 
 ## 7. Quy chuẩn Code & Quy trình CI trước khi tạo Pull Request
+
+Ngoài build và format bên dưới, chạy `dotnet run --project tests/SkillBridge.Checks --configuration Release`. Kiểm thử PostgreSQL/HTTP thực tế, migration và cạnh tranh token: xem [hướng dẫn kiểm thử](../tests/SkillBridge.Checks/README.md). CI chạy thêm các kiểm tra này với PostgreSQL 17.
 
 Dự án áp dụng quy trình kiểm tra chất lượng code tự động trên GitHub Actions.  
 Trước khi `git push` hoặc tạo PR, bạn **bắt buộc phải chạy 2 lệnh sau trên máy của mình**:

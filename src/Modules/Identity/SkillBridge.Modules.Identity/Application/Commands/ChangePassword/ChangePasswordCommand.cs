@@ -1,3 +1,4 @@
+using System.Text;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.CQRS;
@@ -23,10 +24,12 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
         RuleFor(x => x.NewPassword)
             .NotEmpty().WithMessage("Mật khẩu mới không được để trống.")
             .MinimumLength(8).WithMessage("Mật khẩu mới phải có ít nhất 8 ký tự.")
+            .Must(password => password is null || Encoding.UTF8.GetByteCount(password) <= 72)
+            .WithMessage("Mật khẩu mới không được vượt quá 72 byte UTF-8.")
             .Matches(@"[A-Z]").WithMessage("Mật khẩu mới phải chứa ít nhất 1 chữ hoa.")
             .Matches(@"[a-z]").WithMessage("Mật khẩu mới phải chứa ít nhất 1 chữ thường.")
             .Matches(@"[0-9]").WithMessage("Mật khẩu mới phải chứa ít nhất 1 chữ số.")
-            .Matches(@"[\!\?\*\@\#\$\%\^\&\+\=]").WithMessage("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt.")
+            .Matches(@"[^\p{L}\p{N}\s]").WithMessage("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt.")
             .NotEqual(x => x.CurrentPassword).WithMessage("Mật khẩu mới không được trùng với mật khẩu cũ.");
     }
 }
@@ -47,9 +50,9 @@ public sealed class ChangePasswordCommandHandler : ICommandHandler<ChangePasswor
     public async Task<Result> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users.FindAsync([request.UserId], cancellationToken);
-        if (user == null)
+        if (user == null || !user.IsActive)
         {
-            return Result.Failure(Error.NotFound("Identity.UserNotFound", "Không tìm thấy người dùng."));
+            return Result.Failure(Error.Unauthorized("Identity.UserNotFound", "Không tìm thấy người dùng đang hoạt động."));
         }
 
         var isOldPasswordValid = _passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash);
@@ -61,7 +64,18 @@ public sealed class ChangePasswordCommandHandler : ICommandHandler<ChangePasswor
         var newHash = _passwordHasher.HashPassword(request.NewPassword);
         user.ChangePassword(newHash);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.RefreshTokens.Where(t => t.UserId == user.Id && t.RevokedAtUtc == null)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.RevokedAtUtc, DateTimeOffset.UtcNow), cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(Error.Unauthorized("Identity.SessionChanged", "Tài khoản đã thay đổi. Vui lòng đăng nhập lại."));
+        }
 
         return Result.Success();
     }

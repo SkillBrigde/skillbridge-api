@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace SkillBridge.BuildingBlocks.Pagination;
 
 public sealed record PagedResult<T>
 {
     public IReadOnlyList<T> Items { get; init; } = [];
+    [JsonPropertyName("page")]
     public int PageNumber { get; init; }
     public int PageSize { get; init; }
     public long TotalCount { get; init; }

@@ -1,3 +1,5 @@
+-- REFERENCE BLUEPRINT ONLY: Docker does not execute this file.
+-- Runtime tables are owned by module EF Core migrations. Do not apply both to one database.
 -- ==============================================================================
 -- SkillBridge Enterprise Platform - Complete Database Architecture Blueprint
 -- Chuẩn Doanh Nghiệp: Đầy đủ 10 Bounded Contexts, Ledger Kế Toán Kép, State Machine,

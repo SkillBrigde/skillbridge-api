@@ -36,7 +36,7 @@ public sealed class User : AggregateRoot<Guid>
 
         return new User
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             Email = email.Trim().ToLowerInvariant(),
             NormalizedEmail = normalizedEmail,
             PasswordHash = passwordHash,
@@ -72,6 +72,11 @@ public sealed class User : AggregateRoot<Guid>
     {
         if (!LockoutEnabled) return;
 
+        if (LockoutEndUtc.HasValue && !IsLockedOut)
+        {
+            ResetFailedLogin();
+        }
+
         AccessFailedCount++;
         if (AccessFailedCount >= maxFailedAttempts)
         {
@@ -92,6 +97,10 @@ public sealed class User : AggregateRoot<Guid>
 
     public void SetStatus(bool isActive)
     {
+        if (IsActive && !isActive)
+        {
+            SecurityStamp = Guid.NewGuid().ToString("N");
+        }
         IsActive = isActive;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }

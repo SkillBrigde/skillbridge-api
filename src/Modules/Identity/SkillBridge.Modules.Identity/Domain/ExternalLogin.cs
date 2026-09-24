@@ -16,7 +16,7 @@ public sealed class ExternalLogin : Entity<Guid>
     {
         return new ExternalLogin
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.CreateVersion7(),
             UserId = userId,
             Provider = provider,
             ProviderKey = providerKey,

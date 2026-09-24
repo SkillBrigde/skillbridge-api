@@ -8,9 +8,11 @@ Hệ thống Backend xây dựng theo kiến trúc **Modular Monolith** trên n�
 
 - `src/Bootstrapper/SkillBridge.Api`: Điểm khởi chạy (Composition Root), quản lý HTTP pipeline, health checks, OpenAPI/Scalar, CORS, rate limiting.
 - `src/BuildingBlocks/SkillBridge.BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`).
-- `src/Modules/*`: Các phân hệ nghiệp vụ độc lập theo **7 Bounded Contexts** (1. Identity & RBAC, 2. Sessions & Thiết Bị, 3. Profiles & Services, 4. Scheduling & Slots, 5. Bookings & Sessions, 6. Payments & Dual Escrow, 7. Trust & Disputes).
-- **Ranh giới dữ liệu**: Mỗi phân hệ quản lý 24 bảng chuyên trách, giao tiếp bằng decoupled GUIDv7, không khóa ngoại vật lý chéo schema.
-- **Giao tiếp liên phân hệ**: Các phân hệ **không reference chéo trực tiếp**. Sử dụng contracts và integration events qua RabbitMQ.
+- `src/Modules/*`: **10 module** độc lập: Identity, Profiles, Catalog, Scheduling, Booking, Payments, Learning, Messaging, Reviews, Recommendations.
+- **Ranh giới dữ liệu**: Mỗi module sở hữu schema và EF migrations riêng, dùng GUID không có khóa ngoại chéo schema. 46 bảng trong blueprint là thiết kế mục tiêu.
+- **Giao tiếp liên phân hệ**: Các module **không reference chéo trực tiếp**. Dispatcher RabbitMQ/outbox và inbox chưa được triển khai.
+
+Trạng thái thực tế, phạm vi đợt đầu và các điểm tài liệu chưa thống nhất: [Tiến độ backend](docs/backend-progress.md). Các tài liệu Word/Excel liên kết bên dưới không nằm trong repository này.
 
 ---
 
@@ -39,7 +41,7 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 - [Docker Desktop](https://www.docker.com/)
 
 ### 2. Khởi động hạ tầng cục bộ (Database, Broker, Cache)
-Chạy lệnh duy nhất để bật PostgreSQL 17 (kèm sẵn 7 schemas / 24 bảng), RabbitMQ và Redis:
+Khởi động PostgreSQL 17, RabbitMQ và Redis. Database mới được tạo bảng qua EF migrations khi API chạy ở Development; Docker không chạy blueprint SQL:
 
 ```powershell
 docker compose up -d
@@ -78,7 +80,12 @@ dotnet format SkillBridge.slnx --verify-no-changes
 
 # 2. Biên dịch chế độ Release và chặn toàn bộ Warning
 dotnet build SkillBridge.slnx --configuration Release --warnaserror
+
+# 3. Kiểm tra logic, hợp đồng và ranh giới module
+dotnet run --project tests/SkillBridge.Checks --configuration Release
 ```
+
+Kiểm thử PostgreSQL và HTTP thực tế: [hướng dẫn checks](tests/SkillBridge.Checks/README.md).
 
 ---
 
