@@ -9,6 +9,7 @@ internal sealed class ExternalLoginConfiguration : IEntityTypeConfiguration<Exte
     public void Configure(EntityTypeBuilder<ExternalLogin> builder)
     {
         builder.ToTable("external_logins");
+        builder.Ignore("DomainEvents");
 
         builder.HasKey(e => e.Id);
 

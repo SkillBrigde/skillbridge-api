@@ -9,6 +9,7 @@ internal sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
     public void Configure(EntityTypeBuilder<Role> builder)
     {
         builder.ToTable("roles");
+        builder.Ignore("DomainEvents");
 
         builder.HasKey(r => r.Id);
 
