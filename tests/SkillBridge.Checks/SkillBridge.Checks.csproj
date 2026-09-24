@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Bootstrapper/SkillBridge.Api/SkillBridge.Api.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/SkillBridge.Modules.Identity/SkillBridge.Modules.Identity.csproj" />
+    <ProjectReference Include="../../src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj" />
+  </ItemGroup>
+</Project>
