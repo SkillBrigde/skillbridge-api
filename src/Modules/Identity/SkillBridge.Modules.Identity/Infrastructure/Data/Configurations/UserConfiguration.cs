@@ -32,7 +32,8 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.SecurityStamp)
             .IsRequired()
-            .HasMaxLength(100);
+            .HasMaxLength(100)
+            .IsConcurrencyToken();
 
         builder.Property(u => u.FullName)
             .IsRequired()
