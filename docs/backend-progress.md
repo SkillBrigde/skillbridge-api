@@ -57,7 +57,7 @@ Số API ở trên không tính endpoint probe. Bắt đầu đợt này chỉ I
 - Khởi chạy trực tiếp `SkillBridge.Api.dll` trên database trống riêng: đạt tự migrate, `/health/live`, `/health/ready`, OpenAPI và rate limit `429` sau 10 request/phút, kể cả đổi hoa/thường hoặc dấu `/` cuối URL.
 - Database và tiến trình kiểm thử được dọn sau khi chạy; không áp dụng migration vào database đang có của người dùng.
 
-CI đã được cấu hình chạy checks với PostgreSQL 17; lượt CI từ xa chưa chạy trong phiên này. Các kiểm tra trên không xác nhận tính năng của tám module còn là stub hay tích hợp gateway/email/RabbitMQ.
+GitHub Actions với PostgreSQL 17 đã đạt trên commit `2c4c7f3`: [API CI run 11](https://github.com/SkillBrigde/skillbridge-api/actions/runs/35947077382), gồm build, format, logic/architecture và PostgreSQL/HTTP checks. Các kiểm tra trên không xác nhận tính năng của tám module còn là stub hay tích hợp gateway/email/RabbitMQ.
 
 Migration `CompleteIdentitySecurity` giữ các user từ migration ban đầu, chuẩn hóa email và khóa tài khoản chưa có mật khẩu. Email trùng sau chuẩn hóa làm migration thất bại để đối chiếu thủ công, không tự gộp/xóa người dùng. Database từng chạy blueprint SQL cần phương án chuyển đổi riêng; không áp dụng chồng migration.
 
