@@ -14,6 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: skillbridge_checks
+          POSTGRES_PASSWORD: skillbridge_checks
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U skillbridge_checks -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,3 +44,11 @@ jobs:
 
       - name: Verify formatting
         run: dotnet format SkillBridge.slnx --verify-no-changes --no-restore
+
+      - name: Check logic and architecture
+        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build
+
+      - name: Check PostgreSQL and HTTP flows
+        env:
+          SKILLBRIDGE_TEST_DATABASE: Host=localhost;Port=5432;Database=postgres;Username=skillbridge_checks;Password=skillbridge_checks
+        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build -- --database
