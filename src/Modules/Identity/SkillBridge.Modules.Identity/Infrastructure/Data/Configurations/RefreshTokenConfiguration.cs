@@ -9,12 +9,19 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
         builder.ToTable("refresh_tokens");
+        builder.Ignore("DomainEvents");
 
         builder.HasKey(t => t.Id);
 
         builder.Property(t => t.Token)
             .IsRequired()
-            .HasMaxLength(500);
+            .HasMaxLength(64);
+
+        builder.Property(t => t.SecurityStamp)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(t => t.RevokedAtUtc).IsConcurrencyToken();
 
         builder.HasIndex(t => t.Token)
             .IsUnique();
@@ -25,7 +32,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
             .IsRequired();
 
         builder.Property(t => t.ReplacedByToken)
-            .HasMaxLength(500);
+            .HasMaxLength(64);
 
         builder.Property(t => t.CreatedByIp)
             .HasMaxLength(50);

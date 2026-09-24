@@ -31,27 +31,33 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
 
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) || request.RefreshToken.Length > 512)
         {
-            return Result<AuthResponse>.Failure(Error.Validation(
+            return Result<AuthResponse>.Failure(Error.Unauthorized(
                 "Identity.InvalidRefreshToken",
                 "Refresh token không được để trống."));
         }
 
+        var tokenHash = Domain.RefreshToken.Hash(request.RefreshToken);
         var existingToken = await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Token == tokenHash, cancellationToken);
+
+        if (existingToken is { IsRevoked: true, IsExpired: false })
+        {
+            await _dbContext.RevokeSessionsAsync(existingToken.UserId, existingToken.SecurityStamp, cancellationToken);
+        }
 
         if (existingToken == null || !existingToken.IsActive)
         {
-            return Result<AuthResponse>.Failure(Error.Validation(
+            return Result<AuthResponse>.Failure(Error.Unauthorized(
                 "Identity.InvalidRefreshToken",
                 "Refresh token không hợp lệ, đã bị thu hồi hoặc đã hết hạn."));
         }
 
         var user = await _dbContext.Users.FindAsync([existingToken.UserId], cancellationToken);
-        if (user == null || !user.IsActive)
+        if (user == null || !user.IsActive || user.SecurityStamp != existingToken.SecurityStamp)
         {
-            return Result<AuthResponse>.Failure(Error.NotFound(
+            return Result<AuthResponse>.Failure(Error.Unauthorized(
                 "Identity.UserNotFound",
                 "Tài khoản người dùng không tồn tại hoặc đã bị khóa."));
         }
@@ -63,14 +69,25 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
         var newRefreshToken = Domain.RefreshToken.Create(
             userId: user.Id,
             token: newRawRefreshToken,
-            expiresAtUtc: DateTimeOffset.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+            expiresAtUtc: existingToken.ExpiresAtUtc,
+            securityStamp: user.SecurityStamp,
             createdByIp: request.IpAddress
         );
 
         _dbContext.RefreshTokens.Add(newRefreshToken);
 
-        var newAccessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role]);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var newAccessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role], user.SecurityStamp);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _dbContext.ChangeTracker.Clear();
+            await _dbContext.RevokeSessionsAsync(existingToken.UserId, existingToken.SecurityStamp, cancellationToken);
+            return Result<AuthResponse>.Failure(Error.Unauthorized(
+                "Identity.InvalidRefreshToken", "Refresh token đã được sử dụng hoặc thu hồi."));
+        }
 
         var response = new AuthResponse(
             UserId: user.Id,
