@@ -6,3 +6,5 @@
 .vscode
 TestResults
 coverage
+.env
+**/appsettings.Local.json
