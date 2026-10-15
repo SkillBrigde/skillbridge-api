@@ -28,6 +28,7 @@ public sealed class ProfilesModule : ModuleDefinition
         endpoints.MapGetMentorProfile();
         endpoints.MapUpdateMentorProfile();
         endpoints.MapGetMenteeProfile();
+        endpoints.MapUpdateMenteeProfile();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)

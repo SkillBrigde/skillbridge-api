@@ -2,6 +2,13 @@
 
 Module Profiles chịu trách nhiệm quản lý hồ sơ chi tiết của Mentor (kỹ năng, kinh nghiệm, giá/giờ, chứng chỉ) và Mentee (mục tiêu học tập).
 
+## Trạng thái triển khai
+
+- Đã triển khai bốn endpoint self-service `GET`/`PUT` cho `/mentors/me` và `/mentees/me`.
+- Trong giai đoạn chưa có consumer sự kiện đăng ký, `PUT /me` có tính idempotent: tạo hồ sơ nếu chưa tồn tại và cập nhật hồ sơ nếu đã có.
+- `GET /me` trả `404` nếu người dùng chưa gửi `PUT /me` lần đầu.
+- Các endpoint Profiles còn lại trong tài liệu này vẫn là contract dự kiến, chưa được map.
+
 ## Thông tin chung
 
 - **Base URL**: `/api/v1/profiles`
