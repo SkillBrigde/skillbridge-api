@@ -205,8 +205,10 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 
 **Responses**
 - `201 Created`: Thêm thành công.
-- `400 Bad Request`: Kỹ năng đã tồn tại hoặc data không hợp lệ.
+- `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `404 Not Found`: Kỹ năng không tồn tại hoặc không hoạt động trong Catalog.
+- `409 Conflict`: Kỹ năng đã tồn tại trong hồ sơ Mentor.
 
 ### 1.6 Xóa kỹ năng
 - **Trạng thái**: `IMPLEMENTED`

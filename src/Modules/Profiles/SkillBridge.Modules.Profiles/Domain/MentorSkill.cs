@@ -14,6 +14,7 @@ public sealed class MentorSkill : AggregateRoot<Guid>
     public string SkillName { get; private set; } = string.Empty;
     public string ProficiencyLevel { get; private set; } = string.Empty;
     public int YearsOfExperience { get; private set; }
+    public bool IsPrimary { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public static Result<MentorSkill> Create(

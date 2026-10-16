@@ -49,6 +49,7 @@ internal sealed class MentorSkillConfiguration : IEntityTypeConfiguration<Mentor
         builder.Property(skill => skill.SkillName).HasMaxLength(150).IsRequired();
         builder.Property(skill => skill.ProficiencyLevel).HasMaxLength(30).IsRequired();
         builder.Property(skill => skill.YearsOfExperience).IsRequired();
+        builder.Property(skill => skill.IsPrimary).HasDefaultValue(false).IsRequired();
         builder.Property(skill => skill.CreatedAtUtc).IsRequired();
         builder.HasIndex(skill => new { skill.MentorProfileId, skill.SkillId })
             .IsUnique()

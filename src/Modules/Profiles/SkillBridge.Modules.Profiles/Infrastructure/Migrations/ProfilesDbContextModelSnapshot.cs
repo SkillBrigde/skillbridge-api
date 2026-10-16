@@ -210,6 +210,12 @@ namespace SkillBridge.Modules.Profiles.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<bool>("IsPrimary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_primary");
+
                     b.Property<Guid>("MentorProfileId")
                         .HasColumnType("uuid")
                         .HasColumnName("mentor_profile_id");
