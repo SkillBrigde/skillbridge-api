@@ -1,4 +1,3 @@
-using SkillBridge.Modules.Messaging.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using SkillBridge.Modules.Catalog.Infrastructure;
@@ -13,7 +12,7 @@ public sealed class DatabaseHealthCheck(IServiceScopeFactory scopeFactory) : IHe
     {
         using var scope = scopeFactory.CreateScope();
         DbContext[] databases = [
-            scope.ServiceProvider.GetRequiredService<MessagingDbContext>(),
+            scope.ServiceProvider.GetRequiredService<SkillBridge.Modules.Messaging.Infrastructure.MessagingDbContext>(),
             scope.ServiceProvider.GetRequiredService<IdentityDbContext>(),
             scope.ServiceProvider.GetRequiredService<CatalogDbContext>()
         ];
