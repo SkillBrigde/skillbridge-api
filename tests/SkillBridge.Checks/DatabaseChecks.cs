@@ -25,6 +25,8 @@ using SkillBridge.Modules.Identity.Application.Commands.Login;
 using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Profiles;
+using SkillBridge.Modules.Profiles.Infrastructure;
 
 namespace SkillBridge.Checks;
 
@@ -49,7 +51,7 @@ internal static class DatabaseChecks
             await using var drop = new NpgsqlCommand($"DROP DATABASE \"{database}\" WITH (FORCE)", admin);
             await drop.ExecuteNonQueryAsync();
         }
-        Console.WriteLine("PASS: PostgreSQL migrations, HTTP contracts, Admin authorization, token rotation/revocation and Catalog concurrency.");
+        Console.WriteLine("PASS: PostgreSQL migrations, HTTP contracts, Identity security, Catalog concurrency and Profiles self-service.");
     }
 
     private static async Task RunHttpChecksAsync(string connectionString)
@@ -72,14 +74,19 @@ internal static class DatabaseChecks
             options.RejectionStatusCode = 429;
             options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
                 $"{context.Connection.RemoteIpAddress}:{context.GetEndpoint()?.DisplayName}",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 100, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
-        builder.Services.AddBuildingBlocks(builder.Configuration, typeof(IdentityModule).Assembly, typeof(CatalogModule).Assembly);
+        builder.Services.AddBuildingBlocks(builder.Configuration,
+            typeof(IdentityModule).Assembly,
+            typeof(CatalogModule).Assembly,
+            typeof(ProfilesModule).Assembly);
         builder.Services.AddJwtSecurity(builder.Configuration);
         var identity = new IdentityModule();
         var catalog = new CatalogModule();
+        var profiles = new ProfilesModule();
         identity.AddServices(builder.Services, builder.Configuration);
         catalog.AddServices(builder.Services, builder.Configuration);
+        profiles.AddServices(builder.Services, builder.Configuration);
         await using var app = builder.Build();
         app.UseExceptionHandler();
         app.UseMiddleware<CorrelationIdMiddleware>();
@@ -88,12 +95,14 @@ internal static class DatabaseChecks
         app.UseRateLimiter();
         identity.MapEndpoints(app);
         catalog.MapEndpoints(app);
+        profiles.MapEndpoints(app);
         app.Urls.Add("http://127.0.0.1:0");
 
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
             var taxonomy = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+            var profileData = scope.ServiceProvider.GetRequiredService<ProfilesDbContext>();
             await users.GetService<IMigrator>().MigrateAsync("20260911052416_Initial_Identity");
             var legacyOne = Guid.NewGuid();
             var legacyTwo = Guid.NewGuid();
@@ -109,7 +118,10 @@ internal static class DatabaseChecks
             Program.Check(upgraded.All(user => string.IsNullOrEmpty(user.PasswordHash) && !user.IsActive),
                 "Legacy users without credentials must not receive fabricated passwords or active accounts.");
             await taxonomy.Database.MigrateAsync();
-            Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() && !(await taxonomy.Database.GetPendingMigrationsAsync()).Any(),
+            await profileData.Database.MigrateAsync();
+            Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() &&
+                !(await taxonomy.Database.GetPendingMigrationsAsync()).Any() &&
+                !(await profileData.Database.GetPendingMigrationsAsync()).Any(),
                 "PostgreSQL migrations remain pending.");
             users.Users.Add(User.Create("admin@checks.test", scope.ServiceProvider.GetRequiredService<IPasswordHasher>().HashPassword("Password123!"), "Admin", "Admin"));
             await users.SaveChangesAsync();
@@ -138,6 +150,7 @@ internal static class DatabaseChecks
                 new { email = "oversized@checks.test", password = "Ab1!" + new string('đ', 35), fullName = "Oversized", role = "Mentee" });
             var mentee = await LoginAsync(client, "mentee@checks.test");
             var admin = await LoginAsync(client, "admin@checks.test");
+            await ProfilesHttpChecks.RunAsync(client, mentee.AccessToken);
             using var adminMe = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 200, bearer: admin.AccessToken);
             var adminId = (await JsonAsync(adminMe)).GetProperty("id").GetGuid();
             using var selfDisable = await SendAsync(client, HttpMethod.Put, $"/api/v1/identity/users/{adminId}/status", 403,
@@ -328,7 +341,7 @@ internal static class DatabaseChecks
         finally { foreach (var response in moves) response.Dispose(); }
     }
 
-    private static async Task<(string AccessToken, string Cookie, string RefreshToken)> LoginAsync(HttpClient client, string email, string password = "Password123!")
+    internal static async Task<(string AccessToken, string Cookie, string RefreshToken)> LoginAsync(HttpClient client, string email, string password = "Password123!")
     {
         using var response = await SendAsync(client, HttpMethod.Post, "/api/v1/identity/auth/login", 200, new { email, password });
         var json = await JsonAsync(response);
@@ -341,7 +354,7 @@ internal static class DatabaseChecks
         return (json.GetProperty("accessToken").GetString()!, cookie, Uri.UnescapeDataString(cookie["refreshToken=".Length..]));
     }
 
-    private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string path, int? expected,
+    internal static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string path, int? expected,
         object? body = null, string? bearer = null, string? cookie = null)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -358,7 +371,7 @@ internal static class DatabaseChecks
         return response;
     }
 
-    private static async Task<JsonElement> JsonAsync(HttpResponseMessage response)
+    internal static async Task<JsonElement> JsonAsync(HttpResponseMessage response)
     {
         using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         return document.RootElement.Clone();

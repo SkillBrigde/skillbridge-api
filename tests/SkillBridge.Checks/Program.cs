@@ -19,6 +19,8 @@ using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Profiles;
+using SkillBridge.Modules.Profiles.Infrastructure;
 
 namespace SkillBridge.Checks;
 
@@ -157,10 +159,12 @@ internal static class Program
         var services = new ServiceCollection().AddLogging();
         new IdentityModule().AddServices(services, config);
         new CatalogModule().AddServices(services, config);
+        new ProfilesModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         CheckModel(scope.ServiceProvider.GetRequiredService<IdentityDbContext>(), "identity");
         CheckModel(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), "catalog");
+        CheckModel(scope.ServiceProvider.GetRequiredService<ProfilesDbContext>(), "profiles");
     }
 
     private static void CheckModel(DbContext context, string schema)
