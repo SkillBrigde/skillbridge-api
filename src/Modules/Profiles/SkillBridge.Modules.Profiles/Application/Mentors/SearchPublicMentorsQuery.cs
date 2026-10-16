@@ -67,16 +67,15 @@ public sealed class SearchPublicMentorsQueryHandler(ProfilesDbContext dbContext)
         SearchPublicMentorsQuery request,
         CancellationToken cancellationToken)
     {
-        if (request.SkillId.HasValue)
-        {
-            return Error.Validation(
-                "Profiles.SkillFilterUnavailable",
-                "Bộ lọc skillId sẽ khả dụng sau khi Mentor Skills được triển khai.");
-        }
-
         var query = dbContext.MentorProfiles
             .AsNoTracking()
             .Where(profile => profile.VerificationStatus != "Rejected");
+
+        if (request.SkillId.HasValue)
+        {
+            query = query.Where(profile => dbContext.MentorSkills.Any(skill =>
+                skill.MentorProfileId == profile.Id && skill.SkillId == request.SkillId.Value));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {

@@ -198,6 +198,69 @@ namespace SkillBridge.Modules.Profiles.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_mentor_profiles_verification_status", "verification_status IN ('Unverified', 'Pending', 'Verified', 'Rejected')");
                         });
                 });
+
+            modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorSkill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("MentorProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mentor_profile_id");
+
+                    b.Property<string>("ProficiencyLevel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("proficiency_level");
+
+                    b.Property<Guid>("SkillId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("skill_id");
+
+                    b.Property<string>("SkillName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("skill_name");
+
+                    b.Property<int>("YearsOfExperience")
+                        .HasColumnType("integer")
+                        .HasColumnName("years_of_experience");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillId")
+                        .HasDatabaseName("ix_mentor_skills_skill_id");
+
+                    b.HasIndex("MentorProfileId", "SkillId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_mentor_skills_profile_skill");
+
+                    b.ToTable("mentor_skills", "profiles", t =>
+                        {
+                            t.HasCheckConstraint("ck_mentor_skills_ids", "mentor_profile_id <> '00000000-0000-0000-0000-000000000000' AND skill_id <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("ck_mentor_skills_proficiency_level", "proficiency_level IN ('Beginner', 'Intermediate', 'Advanced', 'Expert')");
+
+                            t.HasCheckConstraint("ck_mentor_skills_years_of_experience", "years_of_experience >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorSkill", b =>
+                {
+                    b.HasOne("SkillBridge.Modules.Profiles.Domain.MentorProfile", null)
+                        .WithMany()
+                        .HasForeignKey("MentorProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }

@@ -141,7 +141,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy Mentor.
 
 ### 1.4 Tìm kiếm/lọc danh sách Mentors (Public, phân trang)
-- **Trạng thái**: `IMPLEMENTED`; `skillId` trả `400` cho đến khi Mentor Skills được triển khai.
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
@@ -184,6 +184,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 ```
 
 ### 1.5 Thêm kỹ năng
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/skills`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`

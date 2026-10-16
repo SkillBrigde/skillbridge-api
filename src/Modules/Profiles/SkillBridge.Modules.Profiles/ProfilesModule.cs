@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.Modules.Profiles.Application.Mentors;
 using SkillBridge.Modules.Profiles.Endpoints;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -20,6 +22,7 @@ public sealed class ProfilesModule : ModuleDefinition
 
         services.AddDbContext<ProfilesDbContext>(options => options.UseNpgsql(connectionString,
             npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", ProfilesDbContext.Schema)));
+        services.TryAddScoped<ISkillDirectory, UnavailableSkillDirectory>();
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -29,6 +32,7 @@ public sealed class ProfilesModule : ModuleDefinition
         endpoints.MapGetPublicMentorProfile();
         endpoints.MapSearchPublicMentors();
         endpoints.MapUpdateMentorProfile();
+        endpoints.MapAddMentorSkill();
         endpoints.MapGetMenteeProfile();
         endpoints.MapUpdateMenteeProfile();
     }
