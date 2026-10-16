@@ -15,7 +15,7 @@
 
 ## Quy ước Git của dang
 
-- Nhánh mới dùng tên `dang/<tinh-nang>`, ví dụ `dang/dich-vu-mentor`; phần tên tính năng dùng chữ thường, không dấu và dấu gạch nối.
+- Nhánh mới dùng tên `dang/<feature-name>`, ví dụ `dang/mentor-services`; phần tên tính năng viết bằng tiếng Anh, chữ thường và dấu gạch nối.
 - Tiêu đề và nội dung commit viết bằng tiếng Việt; có thể giữ prefix Conventional Commits như `feat(catalog): bổ sung dịch vụ mentor`.
 - Tách commit theo từng phần thay đổi liên quan, không gộp nhiều tính năng vào một commit.
 - Quy ước này thay thế các ví dụ prefix `vuhaidang/` trong kế hoạch phân công khi tạo nhánh mới.

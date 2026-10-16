@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-10-16. **Owner:** vuhaidang (Catalog); consumer: nguyendat (Profiles/Booking).
 
-**Trạng thái: đã triển khai sáu endpoint trên nhánh `dang/dich-vu-mentor`.** Contract
+**Trạng thái: đã triển khai sáu endpoint trên nhánh `dang/mentor-services`.** Contract
 đã merge qua PR #8; chủ dự án yêu cầu triển khai tiếp VH-02. Build, format, kiểm thử
 PostgreSQL/HTTP và OpenAPI trên Host thật đã qua ngày 2026-10-16.
 Sáu API dưới đây là phần bổ sung, không tính vào 40 API còn lại của vuhaidang.
