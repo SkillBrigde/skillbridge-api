@@ -26,14 +26,6 @@ public sealed class GetPublicMentorProfileQueryHandler(ProfilesDbContext dbConte
             return Error.NotFound("Profiles.MentorProfileNotFound", "Không tìm thấy hồ sơ Mentor.");
         }
 
-        var skills = await dbContext.MentorSkills
-            .AsNoTracking()
-            .Where(skill => skill.MentorProfileId == profile.Id)
-            .OrderBy(skill => skill.SkillName)
-            .ThenBy(skill => skill.Id)
-            .Select(skill => MentorSkillDto.From(skill))
-            .ToListAsync(cancellationToken);
-
-        return MentorProfileDto.From(profile, skills);
+        return await MentorProfileDtoLoader.LoadAsync(dbContext, profile, cancellationToken);
     }
 }

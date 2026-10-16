@@ -12,6 +12,8 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
     public DbSet<MentorProfile> MentorProfiles => Set<MentorProfile>();
     public DbSet<MenteeProfile> MenteeProfiles => Set<MenteeProfile>();
     public DbSet<MentorSkill> MentorSkills => Set<MentorSkill>();
+    public DbSet<MentorExperience> MentorExperiences => Set<MentorExperience>();
+    public DbSet<MentorCertification> MentorCertifications => Set<MentorCertification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +27,69 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
                 property.SetColumnName(JsonNamingPolicy.SnakeCaseLower.ConvertName(property.Name));
             }
         }
+    }
+}
+
+internal sealed class MentorCertificationConfiguration : IEntityTypeConfiguration<MentorCertification>
+{
+    public void Configure(EntityTypeBuilder<MentorCertification> builder)
+    {
+        builder.ToTable("mentor_certifications", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_mentor_certifications_profile_id",
+                "mentor_profile_id <> '00000000-0000-0000-0000-000000000000'");
+            table.HasCheckConstraint(
+                "ck_mentor_certifications_date_range",
+                "expiry_date IS NULL OR expiry_date >= issue_date");
+        });
+        builder.HasKey(certification => certification.Id);
+        builder.Ignore(certification => certification.DomainEvents);
+        builder.Property(certification => certification.MentorProfileId).IsRequired();
+        builder.Property(certification => certification.Name).HasMaxLength(200).IsRequired();
+        builder.Property(certification => certification.IssuingOrganization).HasMaxLength(200).IsRequired();
+        builder.Property(certification => certification.IssueDate).IsRequired();
+        builder.Property(certification => certification.CredentialUrl).HasMaxLength(2048);
+        builder.Property(certification => certification.CredentialId).HasMaxLength(200);
+        builder.HasIndex(certification => new { certification.MentorProfileId, certification.IssueDate })
+            .HasDatabaseName("ix_mentor_certifications_profile_issue_date");
+        builder.HasOne<MentorProfile>()
+            .WithMany()
+            .HasForeignKey(certification => certification.MentorProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class MentorExperienceConfiguration : IEntityTypeConfiguration<MentorExperience>
+{
+    public void Configure(EntityTypeBuilder<MentorExperience> builder)
+    {
+        builder.ToTable("mentor_experiences", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_mentor_experiences_profile_id",
+                "mentor_profile_id <> '00000000-0000-0000-0000-000000000000'");
+            table.HasCheckConstraint(
+                "ck_mentor_experiences_date_range",
+                "end_date IS NULL OR end_date >= start_date");
+            table.HasCheckConstraint(
+                "ck_mentor_experiences_current_state",
+                "(is_current AND end_date IS NULL) OR (NOT is_current AND end_date IS NOT NULL)");
+        });
+        builder.HasKey(experience => experience.Id);
+        builder.Ignore(experience => experience.DomainEvents);
+        builder.Property(experience => experience.MentorProfileId).IsRequired();
+        builder.Property(experience => experience.CompanyName).HasMaxLength(200).IsRequired();
+        builder.Property(experience => experience.Position).HasMaxLength(200).IsRequired();
+        builder.Property(experience => experience.StartDate).IsRequired();
+        builder.Property(experience => experience.Description).HasMaxLength(4000);
+        builder.Property(experience => experience.IsCurrent).IsRequired();
+        builder.HasIndex(experience => new { experience.MentorProfileId, experience.StartDate })
+            .HasDatabaseName("ix_mentor_experiences_profile_start_date");
+        builder.HasOne<MentorProfile>()
+            .WithMany()
+            .HasForeignKey(experience => experience.MentorProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 
