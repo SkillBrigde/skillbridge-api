@@ -109,6 +109,7 @@ foreach (var module in modules)
 
 builder.Services.AddCatalogComposition();
 builder.Services.AddProfilesComposition();
+builder.Services.AddSchedulingComposition();
 
 var app = builder.Build();
 

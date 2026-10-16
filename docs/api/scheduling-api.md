@@ -37,6 +37,8 @@
 
 ## 2. Cập nhật cài đặt lịch
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `PUT`  
 **URL:** `/api/v1/scheduling/settings`  
 **Mô tả:** Cập nhật cài đặt lịch của Mentor đang đăng nhập.  
@@ -55,6 +57,23 @@
 
 ### Response Body (204 No Content)
 Trống.
+
+### Quy tắc nghiệp vụ
+
+- `sessionDurationMinutes`: từ 15 đến 240 phút, là bội số của 15.
+- `bufferTimeMinutes`: từ 0 đến 120 phút, là bội số của 5.
+- `leadTimeHours`: từ 0 đến 720 giờ và không vượt quá `maxDaysInAdvance * 24`.
+- `maxDaysInAdvance`: từ 1 đến 365 ngày.
+- `timezone`: mã múi giờ IANA hợp lệ (ví dụ `Asia/Ho_Chi_Minh`) hoặc `UTC`.
+- Lần `PUT` đầu tiên tạo settings; các lần tiếp theo cập nhật cùng bản ghi.
+
+### Responses
+
+- `204 No Content`: Tạo hoặc cập nhật thành công.
+- `400 Bad Request`: Dữ liệu không hợp lệ.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Tài khoản không có vai trò Mentor.
+- `409 Conflict`: Mentor chưa tạo hồ sơ Profiles.
 
 ---
 
