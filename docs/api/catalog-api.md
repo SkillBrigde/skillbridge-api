@@ -16,7 +16,7 @@
 - Phân trang skills yêu cầu `page >= 1`, `1 <= pageSize <= 100` và offset không vượt `Int32.MaxValue`; sai trả `400`. `search` tối đa 150 ký tự, tìm chuỗi con không phân biệt hoa thường; `%` và `_` là ký tự literal. Tối đa 100 `tagIds`; ID trùng được loại bỏ; bỏ trống hoặc `null` tương đương danh sách rỗng. PUT thay thế toàn bộ tags.
 - Ghi dữ liệu dùng transaction Serializable. Xung đột cập nhật đồng thời trả `409 Catalog.ConcurrentChange`; client có thể gửi lại thao tác sau khi đọc lại dữ liệu.
 - Tạo skill lưu `SkillCreatedIntegrationEvent` vào `catalog.outbox_messages` trong cùng transaction với skill và tags. **Dispatcher RabbitMQ/inbox consumer chưa được triển khai**: sự kiện được lưu bền vững nhưng chưa được chuyển tới module khác.
-- `mentor_services` chưa được triển khai. Contract VH-02 riêng gồm sáu API bổ sung, quyền Mentor và snapshot gói nhiều buổi cho Booking tại [mentor-services-contract.md](./mentor-services-contract.md); đang chờ hai người duyệt trước nhánh feature. Các quy tắc Admin ở trên áp dụng cho 11 API categories/skills/tags hiện tại.
+- `mentor_services` đã có sáu API bổ sung, quyền Mentor và snapshot gói nhiều buổi cho Booking theo [mentor-services-contract.md](./mentor-services-contract.md). Các quy tắc Admin ở trên áp dụng cho 11 API categories/skills/tags hiện tại; service dùng quyền sở hữu Mentor và If-Match theo contract riêng.
 
 ---
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Profiles.Infrastructure;
 
 namespace SkillBridge.Api.Common;
 
@@ -13,7 +14,8 @@ public sealed class DatabaseHealthCheck(IServiceScopeFactory scopeFactory) : IHe
         using var scope = scopeFactory.CreateScope();
         DbContext[] databases = [
             scope.ServiceProvider.GetRequiredService<IdentityDbContext>(),
-            scope.ServiceProvider.GetRequiredService<CatalogDbContext>()
+            scope.ServiceProvider.GetRequiredService<CatalogDbContext>(),
+            scope.ServiceProvider.GetRequiredService<ProfilesDbContext>()
         ];
 
         foreach (var database in databases)

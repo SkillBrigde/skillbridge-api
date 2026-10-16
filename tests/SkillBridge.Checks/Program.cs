@@ -33,6 +33,7 @@ internal static class Program
             Check(args.Length == 0 || args.SequenceEqual(["--database"]), "Usage: dotnet run --project tests/SkillBridge.Checks [-- --database]");
             await CheckResultsAsync();
             CheckDomain();
+            MentorServiceChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
