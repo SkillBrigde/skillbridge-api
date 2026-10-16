@@ -22,23 +22,6 @@ public sealed class GetMentorProfileQueryHandler(ProfilesDbContext dbContext)
             return Error.NotFound("Profiles.MentorProfileNotFound", "Chưa có hồ sơ Mentor cho người dùng hiện tại.");
         }
 
-        return new MentorProfileDto(
-            profile.Id,
-            profile.Headline,
-            profile.Bio,
-            profile.HourlyRate,
-            profile.Currency,
-            profile.Timezone,
-            profile.RatingAverage,
-            profile.TotalReviews,
-            profile.TotalSessions,
-            profile.VerificationStatus,
-            profile.IsAcceptingMentees,
-            profile.AvatarUrl,
-            [],
-            [],
-            [],
-            profile.CreatedAtUtc,
-            profile.UpdatedAtUtc);
+        return MentorProfileDto.From(profile);
     }
 }

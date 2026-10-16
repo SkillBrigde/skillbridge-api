@@ -1,3 +1,5 @@
+using SkillBridge.Modules.Profiles.Domain;
+
 namespace SkillBridge.Modules.Profiles.Application.DTOs;
 
 public sealed record MentorProfileDto(
@@ -17,7 +19,27 @@ public sealed record MentorProfileDto(
     IReadOnlyList<MentorExperienceDto> Experiences,
     IReadOnlyList<MentorCertificationDto> Certifications,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? UpdatedAtUtc);
+    DateTimeOffset? UpdatedAtUtc)
+{
+    internal static MentorProfileDto From(MentorProfile profile) => new(
+        profile.Id,
+        profile.Headline,
+        profile.Bio,
+        profile.HourlyRate,
+        profile.Currency,
+        profile.Timezone,
+        profile.RatingAverage,
+        profile.TotalReviews,
+        profile.TotalSessions,
+        profile.VerificationStatus,
+        profile.IsAcceptingMentees,
+        profile.AvatarUrl,
+        [],
+        [],
+        [],
+        profile.CreatedAtUtc,
+        profile.UpdatedAtUtc);
+}
 
 public sealed record MentorSkillDto(
     Guid Id,

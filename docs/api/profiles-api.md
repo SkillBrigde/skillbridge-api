@@ -5,9 +5,10 @@ Module Profiles chịu trách nhiệm quản lý hồ sơ chi tiết của Mento
 ## Trạng thái triển khai
 
 - Đã triển khai bốn endpoint self-service `GET`/`PUT` cho `/mentors/me` và `/mentees/me`.
+- Đã triển khai hai endpoint công khai `GET /mentors/{mentorId}` và `GET /mentors`.
 - Trong giai đoạn chưa có consumer sự kiện đăng ký, `PUT /me` có tính idempotent: tạo hồ sơ nếu chưa tồn tại và cập nhật hồ sơ nếu đã có.
 - `GET /me` trả `404` nếu người dùng chưa gửi `PUT /me` lần đầu.
-- Các endpoint Profiles còn lại trong tài liệu này vẫn là contract dự kiến, chưa được map.
+- Các endpoint Profiles khác trong tài liệu này vẫn là contract dự kiến, chưa được map.
 
 ## Thông tin chung
 
@@ -126,6 +127,7 @@ Các response lỗi sử dụng định dạng Problem Details (RFC 7807):
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.3 Xem profile Mentor (Public)
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/{mentorId}`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
@@ -139,6 +141,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy Mentor.
 
 ### 1.4 Tìm kiếm/lọc danh sách Mentors (Public, phân trang)
+- **Trạng thái**: `IMPLEMENTED`; `skillId` trả `400` cho đến khi Mentor Skills được triển khai.
 - **URL**: `/api/v1/profiles/mentors`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
@@ -147,7 +150,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 **Query Parameters**
 | Tên tham số | Kiểu dữ liệu | Mô tả |
 |---|---|---|
-| `searchTerm` | string | Tìm theo tên, headline, bio |
+| `searchTerm` | string | Hiện tìm theo headline và bio; Profiles không đọc trực tiếp tên từ Identity |
 | `skillId` | UUID | Lọc theo ID kỹ năng |
 | `minRate` | decimal | Giá tối thiểu |
 | `maxRate` | decimal | Giá tối đa |
