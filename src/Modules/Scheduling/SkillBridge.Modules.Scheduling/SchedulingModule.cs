@@ -29,6 +29,7 @@ public sealed class SchedulingModule : ModuleDefinition
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         base.MapEndpoints(endpoints);
+        endpoints.MapGetSchedulingSettings();
         endpoints.MapUpdateSchedulingSettings();
     }
 

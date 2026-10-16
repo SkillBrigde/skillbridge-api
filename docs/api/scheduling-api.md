@@ -15,6 +15,8 @@
 
 ## 1. Lấy cài đặt lịch (Settings)
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `GET`  
 **URL:** `/api/v1/scheduling/settings`  
 **Mô tả:** Lấy thông tin cấu hình lịch của Mentor đang đăng nhập.  
@@ -32,6 +34,14 @@
   "timezone": "Asia/Ho_Chi_Minh"
 }
 ```
+
+### Responses
+
+- `200 OK`: Lấy cài đặt lịch thành công.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Tài khoản không có vai trò Mentor.
+- `404 Not Found`: Mentor chưa cấu hình cài đặt lịch.
+- `409 Conflict`: Mentor chưa tạo hồ sơ Profiles.
 
 ---
 
