@@ -2,8 +2,9 @@
 
 **Ngày:** 2026-10-16. **Owner:** vuhaidang (Catalog); consumer: nguyendat (Profiles/Booking).
 
-**Trạng thái: đề xuất để hai người review, chưa triển khai endpoint.** Chỉ bắt đầu
-`vuhaidang/feat-catalog-mentor-services` sau khi cả hai duyệt contract này.
+**Trạng thái: đã triển khai sáu endpoint trên nhánh `dang/dich-vu-mentor`.** Contract
+đã merge qua PR #8; chủ dự án yêu cầu triển khai tiếp VH-02. Build, format, kiểm thử
+PostgreSQL/HTTP và OpenAPI trên Host thật đã qua ngày 2026-10-16.
 Sáu API dưới đây là phần bổ sung, không tính vào 40 API còn lại của vuhaidang.
 
 ## 1. Quyết định bàn giao
@@ -28,7 +29,7 @@ Tên tier không ép mọi dịch vụ phải cùng giá, cùng thời lượng 
 Giá dịch vụ độc lập với `MentorProfile.HourlyRate`.
 Hỗ trợ USD trong Catalog không đồng nghĩa Payments đã hỗ trợ thu USD.
 
-## 2. API dự kiến
+## 2. API
 
 Base: `/api/v1/catalog`. UUID hợp lệ; lỗi dùng Problem Details.
 
@@ -81,7 +82,7 @@ Hai API danh sách nhận `page=1`, `pageSize=10` (1–100), `serviceType` tùy 
 
 - POST/PUT dùng cùng các trường trên; PUT thay thế toàn bộ nội dung có thể sửa.
 - `title`: trim, bắt buộc, 1–200 ký tự; `description`: trim, bắt buộc, 1–4000.
-- `deliverables`: văn bản thuần, trim, bắt buộc, 1–4000; không nhận HTML hoặc URL file như một upload.
+- `deliverables`: văn bản thuần, trim, bắt buộc, 1–4000; server không diễn giải HTML hoặc coi URL file là upload. Web phải hiển thị nội dung dưới dạng text được encode.
 - Văn bản không chứa ký tự điều khiển, trừ xuống dòng/tab trong description/deliverables.
 - `currency` trim và uppercase trước validation. Tiền dùng decimal, không làm tròn âm thầm.
 - `durationMinutes`, `totalSessions`, `price`, `serviceType`, `currency`, `isActive`
@@ -182,15 +183,16 @@ khi đặt hay lên lịch dần, thời hạn/điều kiện đổi lịch và 
 gói, cùng phí/hoàn tiền. Contract này không biến request Booking cũ có một `slotId`
 thành contract đủ dùng cho gói nhiều buổi; nguyendat cần cập nhật ND-11 trước khi code Booking.
 
-## 5. Điều kiện bắt đầu nhánh triển khai
+## 5. Bàn giao triển khai
 
-- [ ] vuhaidang duyệt bảng quyết định và sáu API.
-- [ ] nguyendat xác nhận profile ID/user ID, port Profiles, snapshot và gói nhiều buổi.
-- [ ] Thống nhất các giới hạn đề xuất: giá, 52 buổi, thời lượng 15–240 phút.
-- [ ] Ghi nhận review trên PR này; sửa contract và merge về develop trước nhánh feature.
+- Migration `AddMentorServices` chỉ thay đổi schema `catalog`; không có FK sang Profiles/Identity.
+- `MentorServiceChecks` kiểm tra validation, quyền, giá, inactive/deleted, snapshot và cập nhật đồng thời.
+- Adapter `ProfileMentorDirectory` tại Host gọi `GetMentorProfileQuery` của Profiles, không đổi source Profiles.
+- Catalog đăng ký port dự phòng trả 503 khi chạy riêng mà không có adapter; Host thật đăng ký adapter có dữ liệu Profiles.
+- Query snapshot: `MentorServices.GetBookingSnapshotAsync(serviceId, cancellationToken)`;
+  trả `Result<MentorServiceSnapshot>`. Đây là Application query cho composition adapter;
+  Booking không reference project Catalog. DTO record độc lập với entity, không bị đổi khi sửa/xóa service.
+- Nhánh mới theo quy ước `dang/...`; commit bằng tiếng Việt.
 
-Khi triển khai: migration riêng `catalog`, lịch sử migrations trong `catalog`,
-mọi configuration ignore DomainEvents; test riêng cho MentorServices. Checks cần
-bao phủ quyền sở hữu, public không thấy inactive/deleted, FluentValidation, giá hai
-currency, gói nhiều buổi, concurrency/If-Match, snapshot không đổi sau cập nhật/xóa,
-không reference module hoặc FK liên schema. Chưa đánh dấu TESTED các API chưa tồn tại.
+Nguyendat có thể dùng service thật để hoàn thiện ND-11. Chính sách giữ slot, hủy,
+dời lịch và trạng thái gói vẫn thuộc Booking, chưa được triển khai trong VH-02.
