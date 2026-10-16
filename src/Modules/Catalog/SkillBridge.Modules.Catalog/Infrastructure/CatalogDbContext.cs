@@ -12,6 +12,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Skill> Skills => Set<Skill>();
     public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<MentorService> MentorServices => Set<MentorService>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -87,5 +88,34 @@ internal sealed class TagConfiguration : IEntityTypeConfiguration<Tag>
         builder.Property(tag => tag.Name).HasMaxLength(150).IsRequired();
         builder.Property(tag => tag.Slug).HasMaxLength(150).IsRequired();
         builder.HasIndex(tag => tag.Slug).IsUnique();
+    }
+}
+
+internal sealed class MentorServiceConfiguration : IEntityTypeConfiguration<MentorService>
+{
+    public void Configure(EntityTypeBuilder<MentorService> builder)
+    {
+        builder.ToTable("mentor_services", table =>
+        {
+            table.HasCheckConstraint("CK_services_ids", "mentor_id <> '00000000-0000-0000-0000-000000000000' AND mentor_user_id <> '00000000-0000-0000-0000-000000000000'");
+            table.HasCheckConstraint("CK_services_type", "service_type IN ('Tier1_ReviewCV', 'Tier2_MockInterview', 'Tier3_Roadmap')");
+            table.HasCheckConstraint("CK_services_duration", "duration_minutes BETWEEN 15 AND 240");
+            table.HasCheckConstraint("CK_services_sessions", "total_sessions BETWEEN 1 AND 52");
+            table.HasCheckConstraint("CK_services_price", "(currency = 'VND' AND price > 0 AND price <= 100000000 AND price = trunc(price)) OR (currency = 'USD' AND price > 0 AND price <= 5000 AND price = trunc(price, 2))");
+            table.HasCheckConstraint("CK_services_version", "version > 0");
+            table.HasCheckConstraint("CK_services_deleted", "NOT is_deleted OR NOT is_active");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Ignore(x => x.DomainEvents);
+        builder.Property(x => x.Title).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Description).HasMaxLength(4000).IsRequired();
+        builder.Property(x => x.Deliverables).HasMaxLength(4000).IsRequired();
+        builder.Property(x => x.ServiceType).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+        builder.Property(x => x.Price).HasColumnType("numeric");
+        builder.Property(x => x.Version).IsConcurrencyToken();
+        builder.HasQueryFilter(x => !x.IsDeleted);
+        builder.HasIndex(x => new { x.MentorId, x.IsActive, x.CreatedAtUtc });
+        builder.HasIndex(x => new { x.MentorUserId, x.CreatedAtUtc });
     }
 }

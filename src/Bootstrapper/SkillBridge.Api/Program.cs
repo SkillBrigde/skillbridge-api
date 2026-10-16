@@ -107,6 +107,8 @@ foreach (var module in modules)
     module.AddServices(builder.Services, builder.Configuration);
 }
 
+builder.Services.AddCatalogComposition();
+
 var app = builder.Build();
 
 // 9. HTTP Request Pipeline

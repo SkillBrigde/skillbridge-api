@@ -12,3 +12,10 @@
 - Invariant 7: Use 4 internal layers inside each module: `Domain/`, `Application/`, `Infrastructure/`, `Endpoints/`.
 - Invariant 8: In EF Core configurations (`IEntityTypeConfiguration<T>`), always `builder.Ignore(e => e.DomainEvents);`.
 - Invariant 9: Endpoints should use ASP.NET Core Minimal APIs grouped by `/api/v1/{routePrefix}`.
+
+## Quy ước Git của dang
+
+- Nhánh mới dùng tên `dang/<feature-name>`, ví dụ `dang/mentor-services`; phần tên tính năng viết bằng tiếng Anh, chữ thường và dấu gạch nối.
+- Tiêu đề và nội dung commit viết bằng tiếng Việt; có thể giữ prefix Conventional Commits như `feat(catalog): bổ sung dịch vụ mentor`.
+- Tách commit theo từng phần thay đổi liên quan, không gộp nhiều tính năng vào một commit.
+- Quy ước này thay thế các ví dụ prefix `vuhaidang/` trong kế hoạch phân công khi tạo nhánh mới.
