@@ -87,6 +87,7 @@ internal static class DatabaseChecks
         identity.AddServices(builder.Services, builder.Configuration);
         catalog.AddServices(builder.Services, builder.Configuration);
         profiles.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddCatalogComposition();
         await using var app = builder.Build();
         app.UseExceptionHandler();
         app.UseMiddleware<CorrelationIdMiddleware>();
@@ -151,6 +152,7 @@ internal static class DatabaseChecks
             var mentee = await LoginAsync(client, "mentee@checks.test");
             var admin = await LoginAsync(client, "admin@checks.test");
             await ProfilesHttpChecks.RunAsync(client, mentee.AccessToken);
+            await MentorServiceChecks.RunAsync(client, app.Services, mentee.AccessToken);
             using var adminMe = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 200, bearer: admin.AccessToken);
             var adminId = (await JsonAsync(adminMe)).GetProperty("id").GetGuid();
             using var selfDisable = await SendAsync(client, HttpMethod.Put, $"/api/v1/identity/users/{adminId}/status", 403,
