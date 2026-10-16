@@ -28,6 +28,14 @@ internal static class MentorProfileDtoLoader
             .Select(experience => MentorExperienceDto.From(experience))
             .ToListAsync(cancellationToken);
 
-        return MentorProfileDto.From(profile, skills, experiences);
+        var certifications = await dbContext.MentorCertifications
+            .AsNoTracking()
+            .Where(certification => certification.MentorProfileId == profile.Id)
+            .OrderByDescending(certification => certification.IssueDate)
+            .ThenBy(certification => certification.Id)
+            .Select(certification => MentorCertificationDto.From(certification))
+            .ToListAsync(cancellationToken);
+
+        return MentorProfileDto.From(profile, skills, experiences, certifications);
     }
 }

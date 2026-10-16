@@ -86,4 +86,14 @@ public sealed record MentorCertificationDto(
     DateTimeOffset IssueDate,
     DateTimeOffset? ExpiryDate,
     string? CredentialUrl,
-    string? CredentialId);
+    string? CredentialId)
+{
+    internal static MentorCertificationDto From(MentorCertification certification) => new(
+        certification.Id,
+        certification.Name,
+        certification.IssuingOrganization,
+        certification.IssueDate,
+        certification.ExpiryDate,
+        certification.CredentialUrl,
+        certification.CredentialId);
+}

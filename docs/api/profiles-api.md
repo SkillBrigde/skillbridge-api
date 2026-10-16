@@ -275,6 +275,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy.
 
 ### 1.10 Thêm chứng chỉ
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/certifications`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`

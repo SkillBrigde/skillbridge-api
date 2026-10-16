@@ -13,6 +13,7 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
     public DbSet<MenteeProfile> MenteeProfiles => Set<MenteeProfile>();
     public DbSet<MentorSkill> MentorSkills => Set<MentorSkill>();
     public DbSet<MentorExperience> MentorExperiences => Set<MentorExperience>();
+    public DbSet<MentorCertification> MentorCertifications => Set<MentorCertification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,36 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
                 property.SetColumnName(JsonNamingPolicy.SnakeCaseLower.ConvertName(property.Name));
             }
         }
+    }
+}
+
+internal sealed class MentorCertificationConfiguration : IEntityTypeConfiguration<MentorCertification>
+{
+    public void Configure(EntityTypeBuilder<MentorCertification> builder)
+    {
+        builder.ToTable("mentor_certifications", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_mentor_certifications_profile_id",
+                "mentor_profile_id <> '00000000-0000-0000-0000-000000000000'");
+            table.HasCheckConstraint(
+                "ck_mentor_certifications_date_range",
+                "expiry_date IS NULL OR expiry_date >= issue_date");
+        });
+        builder.HasKey(certification => certification.Id);
+        builder.Ignore(certification => certification.DomainEvents);
+        builder.Property(certification => certification.MentorProfileId).IsRequired();
+        builder.Property(certification => certification.Name).HasMaxLength(200).IsRequired();
+        builder.Property(certification => certification.IssuingOrganization).HasMaxLength(200).IsRequired();
+        builder.Property(certification => certification.IssueDate).IsRequired();
+        builder.Property(certification => certification.CredentialUrl).HasMaxLength(2048);
+        builder.Property(certification => certification.CredentialId).HasMaxLength(200);
+        builder.HasIndex(certification => new { certification.MentorProfileId, certification.IssueDate })
+            .HasDatabaseName("ix_mentor_certifications_profile_issue_date");
+        builder.HasOne<MentorProfile>()
+            .WithMany()
+            .HasForeignKey(certification => certification.MentorProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 
