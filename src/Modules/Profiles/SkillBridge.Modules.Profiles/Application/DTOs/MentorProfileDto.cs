@@ -21,7 +21,9 @@ public sealed record MentorProfileDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc)
 {
-    internal static MentorProfileDto From(MentorProfile profile) => new(
+    internal static MentorProfileDto From(
+        MentorProfile profile,
+        IReadOnlyList<MentorSkillDto>? skills = null) => new(
         profile.Id,
         profile.Headline,
         profile.Bio,
@@ -34,7 +36,7 @@ public sealed record MentorProfileDto(
         profile.VerificationStatus,
         profile.IsAcceptingMentees,
         profile.AvatarUrl,
-        [],
+        skills ?? [],
         [],
         [],
         profile.CreatedAtUtc,
@@ -46,7 +48,15 @@ public sealed record MentorSkillDto(
     Guid SkillId,
     string Name,
     string ProficiencyLevel,
-    int YearsOfExperience);
+    int YearsOfExperience)
+{
+    internal static MentorSkillDto From(MentorSkill skill) => new(
+        skill.Id,
+        skill.SkillId,
+        skill.SkillName,
+        skill.ProficiencyLevel,
+        skill.YearsOfExperience);
+}
 
 public sealed record MentorExperienceDto(
     Guid Id,

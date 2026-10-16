@@ -11,6 +11,7 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
 
     public DbSet<MentorProfile> MentorProfiles => Set<MentorProfile>();
     public DbSet<MenteeProfile> MenteeProfiles => Set<MenteeProfile>();
+    public DbSet<MentorSkill> MentorSkills => Set<MentorSkill>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,40 @@ public sealed class ProfilesDbContext(DbContextOptions<ProfilesDbContext> option
                 property.SetColumnName(JsonNamingPolicy.SnakeCaseLower.ConvertName(property.Name));
             }
         }
+    }
+}
+
+internal sealed class MentorSkillConfiguration : IEntityTypeConfiguration<MentorSkill>
+{
+    public void Configure(EntityTypeBuilder<MentorSkill> builder)
+    {
+        builder.ToTable("mentor_skills", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_mentor_skills_ids",
+                "mentor_profile_id <> '00000000-0000-0000-0000-000000000000' AND skill_id <> '00000000-0000-0000-0000-000000000000'");
+            table.HasCheckConstraint(
+                "ck_mentor_skills_proficiency_level",
+                "proficiency_level IN ('Beginner', 'Intermediate', 'Advanced', 'Expert')");
+            table.HasCheckConstraint("ck_mentor_skills_years_of_experience", "years_of_experience >= 0");
+        });
+        builder.HasKey(skill => skill.Id);
+        builder.Ignore(skill => skill.DomainEvents);
+        builder.Property(skill => skill.MentorProfileId).IsRequired();
+        builder.Property(skill => skill.SkillId).IsRequired();
+        builder.Property(skill => skill.SkillName).HasMaxLength(150).IsRequired();
+        builder.Property(skill => skill.ProficiencyLevel).HasMaxLength(30).IsRequired();
+        builder.Property(skill => skill.YearsOfExperience).IsRequired();
+        builder.Property(skill => skill.IsPrimary).HasDefaultValue(false).IsRequired();
+        builder.Property(skill => skill.CreatedAtUtc).IsRequired();
+        builder.HasIndex(skill => new { skill.MentorProfileId, skill.SkillId })
+            .IsUnique()
+            .HasDatabaseName("ux_mentor_skills_profile_skill");
+        builder.HasIndex(skill => skill.SkillId).HasDatabaseName("ix_mentor_skills_skill_id");
+        builder.HasOne<MentorProfile>()
+            .WithMany()
+            .HasForeignKey(skill => skill.MentorProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 
