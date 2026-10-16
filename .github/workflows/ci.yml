@@ -2,7 +2,7 @@ name: API CI
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, 'dang/**']
   push:
     branches: [main, develop]
 

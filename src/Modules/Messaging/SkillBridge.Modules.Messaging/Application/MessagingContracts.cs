@@ -14,11 +14,6 @@ public interface IMessageNotifier
     Task PublishAsync(IReadOnlyCollection<Guid> recipients, string eventName, object?[] arguments, CancellationToken cancellationToken);
 }
 
-internal sealed class NoRealtimeNotifier : IMessageNotifier
-{
-    public Task PublishAsync(IReadOnlyCollection<Guid> recipients, string eventName, object?[] arguments, CancellationToken cancellationToken) => Task.CompletedTask;
-}
-
 public sealed record CreateConversationRequest(Guid TargetUserId);
 public sealed record SendMessageRequest(string? Content, string? Type = "Text");
 public sealed record EditMessageRequest(string? Content);
