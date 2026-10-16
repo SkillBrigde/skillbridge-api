@@ -13,6 +13,7 @@ public sealed class DatabaseHealthCheck(IServiceScopeFactory scopeFactory) : IHe
     {
         using var scope = scopeFactory.CreateScope();
         DbContext[] databases = [
+            scope.ServiceProvider.GetRequiredService<SkillBridge.Modules.Messaging.Infrastructure.MessagingDbContext>(),
             scope.ServiceProvider.GetRequiredService<IdentityDbContext>(),
             scope.ServiceProvider.GetRequiredService<CatalogDbContext>(),
             scope.ServiceProvider.GetRequiredService<ProfilesDbContext>()

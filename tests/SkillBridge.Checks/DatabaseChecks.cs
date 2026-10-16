@@ -25,6 +25,7 @@ using SkillBridge.Modules.Identity.Application.Commands.Login;
 using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -79,8 +80,12 @@ internal static class DatabaseChecks
         builder.Services.AddBuildingBlocks(builder.Configuration,
             typeof(IdentityModule).Assembly,
             typeof(CatalogModule).Assembly,
+            typeof(MessagingModule).Assembly,
             typeof(ProfilesModule).Assembly);
         builder.Services.AddJwtSecurity(builder.Configuration);
+        builder.Services.AddMessagingComposition();
+        var messaging = new MessagingModule();
+        messaging.AddServices(builder.Services, builder.Configuration);
         var identity = new IdentityModule();
         var catalog = new CatalogModule();
         var profiles = new ProfilesModule();
@@ -95,6 +100,7 @@ internal static class DatabaseChecks
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();
+        messaging.MapEndpoints(app);
         identity.MapEndpoints(app);
         catalog.MapEndpoints(app);
         profiles.MapEndpoints(app);
@@ -120,6 +126,7 @@ internal static class DatabaseChecks
             Program.Check(upgraded.All(user => string.IsNullOrEmpty(user.PasswordHash) && !user.IsActive),
                 "Legacy users without credentials must not receive fabricated passwords or active accounts.");
             await taxonomy.Database.MigrateAsync();
+            await messaging.InitializeAsync(app.Services);
             await profileData.Database.MigrateAsync();
             Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() &&
                 !(await taxonomy.Database.GetPendingMigrationsAsync()).Any() &&
@@ -179,6 +186,7 @@ internal static class DatabaseChecks
             Program.Check((await JsonAsync(me)).GetProperty("fullName").GetString() == "Updated Mentee", "Updating current user did not persist fullName.");
 
             await CheckCatalogAsync(client, admin.AccessToken, mentee.AccessToken);
+            await MessagingChecks.RunAsync(client, app.Services);
             var concurrentAccess = await CheckConcurrentRefreshAsync(app.Services, mentee.RefreshToken, userId);
             using var originalRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: mentee.AccessToken);
             using var winnerRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: concurrentAccess);
