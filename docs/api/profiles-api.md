@@ -247,6 +247,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.8 Sửa kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences/{experienceId}`
 - **Method**: `PUT`
 - **Quyền truy cập**: `Mentor`
