@@ -26,6 +26,7 @@ public sealed class ProfilesModule : ModuleDefinition
     {
         base.MapEndpoints(endpoints);
         endpoints.MapGetMentorProfile();
+        endpoints.MapGetPublicMentorProfile();
         endpoints.MapUpdateMentorProfile();
         endpoints.MapGetMenteeProfile();
         endpoints.MapUpdateMenteeProfile();

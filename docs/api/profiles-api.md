@@ -126,6 +126,7 @@ Các response lỗi sử dụng định dạng Problem Details (RFC 7807):
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.3 Xem profile Mentor (Public)
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/{mentorId}`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
