@@ -85,6 +85,7 @@ internal static class DatabaseChecks
         var catalog = new CatalogModule();
         var profiles = new ProfilesModule();
         identity.AddServices(builder.Services, builder.Configuration);
+        IdentityRecoveryChecks.ConfigureServices(builder.Services);
         catalog.AddServices(builder.Services, builder.Configuration);
         profiles.AddServices(builder.Services, builder.Configuration);
         await using var app = builder.Build();
@@ -180,6 +181,7 @@ internal static class DatabaseChecks
             using var originalRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: mentee.AccessToken);
             using var winnerRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: concurrentAccess);
             await CheckFailedLoginLockoutAsync(app.Services);
+            await IdentityRecoveryChecks.RunAsync(client, app.Services);
             using var replay = await SendAsync(client, HttpMethod.Post, "/api/v1/identity/auth/refresh", 401, cookie: mentee.Cookie);
             await using (var scope = app.Services.CreateAsyncScope())
                 Program.Check(await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().OutboxMessages.CountAsync() == 1,
