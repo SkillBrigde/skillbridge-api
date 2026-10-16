@@ -184,6 +184,7 @@ internal static class DatabaseChecks
 
             await CheckCatalogAsync(client, admin.AccessToken, mentee.AccessToken);
             await MessagingChecks.RunAsync(client, app.Services);
+            await ChatHubChecks.RunAsync(client, app.Services);
             var concurrentAccess = await CheckConcurrentRefreshAsync(app.Services, mentee.RefreshToken, userId);
             using var originalRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: mentee.AccessToken);
             using var winnerRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: concurrentAccess);
