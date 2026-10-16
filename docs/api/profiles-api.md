@@ -263,6 +263,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy kinh nghiệm.
 
 ### 1.9 Xóa kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences/{experienceId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`
