@@ -6,9 +6,10 @@ Module Profiles chịu trách nhiệm quản lý hồ sơ chi tiết của Mento
 
 - Đã triển khai bốn endpoint self-service `GET`/`PUT` cho `/mentors/me` và `/mentees/me`.
 - Đã triển khai hai endpoint công khai `GET /mentors/{mentorId}` và `GET /mentors`.
+- Đã triển khai quản lý kỹ năng, kinh nghiệm và chứng chỉ của Mentor tại các mục `1.5` đến `1.11`.
 - Trong giai đoạn chưa có consumer sự kiện đăng ký, `PUT /me` có tính idempotent: tạo hồ sơ nếu chưa tồn tại và cập nhật hồ sơ nếu đã có.
 - `GET /me` trả `404` nếu người dùng chưa gửi `PUT /me` lần đầu.
-- Các endpoint Profiles khác trong tài liệu này vẫn là contract dự kiến, chưa được map.
+- Endpoint quản trị xác minh Mentor tại mục `3.1` vẫn là contract dự kiến, chưa được map.
 
 ## Thông tin chung
 
@@ -245,6 +246,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `201 Created`: Thêm thành công.
 - `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `409 Conflict`: Mentor chưa tạo hồ sơ.
 
 ### 1.8 Sửa kinh nghiệm
 - **Trạng thái**: `IMPLEMENTED`
@@ -297,6 +299,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `201 Created`: Thêm thành công.
 - `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `409 Conflict`: Mentor chưa tạo hồ sơ.
 
 ### 1.11 Xóa chứng chỉ
 - **Trạng thái**: `IMPLEMENTED`
