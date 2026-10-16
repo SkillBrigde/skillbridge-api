@@ -32,6 +32,7 @@ internal static class Program
         {
             Check(args.Length == 0 || args.SequenceEqual(["--database"]), "Usage: dotnet run --project tests/SkillBridge.Checks [-- --database]");
             await CheckResultsAsync();
+            await IdentityRecoveryChecks.CheckDomainAsync();
             CheckDomain();
             MentorServiceChecks.CheckDomain();
             CheckArchitecture();

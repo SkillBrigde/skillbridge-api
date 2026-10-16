@@ -2,9 +2,10 @@
 
 Tài liệu đặc tả API cho module Identity của dự án SkillBridge (Kiến trúc .NET 10 Modular Monolith).
 
-## Trạng thái triển khai (2026-09-23)
+## Trạng thái triển khai (2026-10-16)
 
-- Đã triển khai 10 endpoint bên dưới, ngoại trừ `forgot-password` và `reset-password`; hai endpoint khôi phục mật khẩu chưa có dịch vụ gửi email/token và chưa được map.
+- Đã triển khai đủ 12 endpoint bên dưới, gồm `forgot-password` và `reset-password`. Khôi phục mật khẩu hiện có adapter hộp thư trong bộ nhớ chỉ dùng ở Development; chưa tích hợp email provider production.
+- Migration `AddPasswordRecovery` thêm `identity.password_reset_tokens`. Mỗi tài khoản có tối đa một bản ghi token mới nhất; chỉ lưu SHA-256, gắn security stamp, có hạn 30 phút và dùng một lần. Reset thành công đổi password hash/security stamp, xóa trạng thái đăng nhập sai và thu hồi mọi refresh token trong cùng giao dịch. Token reset cũ cũng mất hiệu lực khi security stamp thay đổi.
 - `UserRegisteredIntegrationEvent` được ghi cùng giao dịch tạo user vào `identity.outbox_messages`. Dispatcher và consumer Profiles chưa được triển khai, do đó chưa tự động tạo profile.
 - Migration `CompleteIdentitySecurity` bổ sung schema xác thực sau migration đầu tiên. User từ schema cũ được giữ nguyên ID/thông tin, chuẩn hóa email và vô hiệu hóa vì chưa có mật khẩu. Email cũ trùng nhau sau chuẩn hóa cần được xử lý trước khi migration thành công; migration không tự gộp/xóa tài khoản.
 - Mỗi JWT mang security stamp; khi đổi mật khẩu, vô hiệu hóa tài khoản hoặc đăng xuất bằng cookie thuộc tài khoản đang xác thực, mọi access token cũ mất hiệu lực ngay và mọi refresh token của tài khoản bị thu hồi. Đăng xuất áp dụng cho tất cả thiết bị/phiên của tài khoản.
@@ -261,7 +262,14 @@ Thành công đồng thời thu hồi mọi refresh token của người dùng, 
 ```
 
 **Responses:**
-- `204 No Content`: Thành công (luôn trả về 204 dù email có tồn tại hay không để bảo mật).
+- `204 No Content`: Yêu cầu hợp lệ đã được tiếp nhận; cùng phản hồi rỗng cho email tồn tại, không tồn tại, tài khoản vô hiệu hóa, cooldown hoặc lỗi gửi email. Không trả token qua HTTP.
+- `400 Bad Request`: Email thiếu/sai định dạng, quá 256 ký tự hoặc chứa NUL.
+- `429 Too Many Requests`: Vượt giới hạn chung của nhóm auth (10 yêu cầu/phút/IP/endpoint).
+- `503 Service Unavailable`: Chưa có email provider dùng được; áp dụng cho mọi địa chỉ email trước khi truy vấn tài khoản.
+
+Mỗi tài khoản được gửi tối đa một mã/phút. Mã gồm 32 byte ngẫu nhiên, biểu diễn thành 64 ký tự hex viết hoa; mã mới thay thế mã trước đó, hết hạn sau 30 phút.
+
+`IPasswordResetEmailSender` là điểm tích hợp email. Adapter mặc định `DevelopmentPasswordResetEmailSender` chỉ hoạt động khi `IHostEnvironment.IsDevelopment()`; hộp thư giữ tối đa 1.000 địa chỉ trong bộ nhớ, hết hạn cùng token và mất khi tiến trình khởi động lại. Lập trình viên có thể đọc một lần bằng `Take(email)` qua debugger hoặc service được inject trong kiểm thử; không có endpoint lấy token và không ghi token vào log. Môi trường khác mặc định trả `503`; cần đăng ký adapter gửi email thật thay thế interface trước khi phát hành production. Link do adapter thật tạo phải dùng URL frontend được cấu hình tin cậy, không lấy host từ request.
 
 ---
 
@@ -291,6 +299,8 @@ Thành công đồng thời thu hồi mọi refresh token của người dùng, 
 **Responses:**
 - `204 No Content`: Thành công.
 - `400 Bad Request`: Lỗi validation hoặc token không hợp lệ/đã hết hạn.
+
+Token sai tài khoản, đã dùng, hết hạn hoặc có security stamp cũ đều trả cùng lỗi `Identity.InvalidResetToken`. Mật khẩu mới theo quy tắc đăng ký (ít nhất 8 ký tự, đủ hoa/thường/số/ký tự đặc biệt, tối đa 72 byte UTF-8). Hai lần reset đồng thời chỉ có một lần thành công. Sau reset, cookie refresh hiện tại được xóa và người dùng phải đăng nhập lại trên tất cả thiết bị. Endpoint có `Cache-Control: no-store` và giới hạn auth chung.
 
 ---
 

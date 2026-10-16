@@ -5,10 +5,12 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Identity.Application.Commands.ChangePassword;
+using SkillBridge.Modules.Identity.Application.Commands.ForgotPassword;
 using SkillBridge.Modules.Identity.Application.Commands.Login;
 using SkillBridge.Modules.Identity.Application.Commands.Logout;
 using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
 using SkillBridge.Modules.Identity.Application.Commands.Register;
+using SkillBridge.Modules.Identity.Application.Commands.ResetPassword;
 
 namespace SkillBridge.Modules.Identity.Endpoints;
 
@@ -88,6 +90,25 @@ public static class AuthEndpoints
             context.Response.Cookies.Delete(CookieName, CookieOptions(0));
             return Results.NoContent();
         }).RequireAuthorization().WithName("ChangePassword");
+
+        group.MapPost("/forgot-password", async (ForgotPasswordCommand command, ISender sender, HttpContext context, CancellationToken cancellationToken) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            var result = await sender.Send(command, cancellationToken);
+            if (result.IsSuccess) return Results.NoContent();
+            return result.Error.Code == "Identity.PasswordRecoveryUnavailable"
+                ? Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: result.Error.Code, detail: result.Error.Description)
+                : result.Error.ToProblemDetails();
+        }).AllowAnonymous().WithName("ForgotPassword");
+
+        group.MapPost("/reset-password", async (ResetPasswordCommand command, ISender sender, HttpContext context, CancellationToken cancellationToken) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            var result = await sender.Send(command, cancellationToken);
+            if (result.IsFailure) return result.Error.ToProblemDetails();
+            context.Response.Cookies.Delete(CookieName, CookieOptions(0));
+            return Results.NoContent();
+        }).AllowAnonymous().WithName("ResetPassword");
     }
 
     private static CookieOptions CookieOptions(int expirationDays) => new()
