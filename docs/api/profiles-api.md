@@ -223,6 +223,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Kỹ năng không tồn tại trong hồ sơ của Mentor này.
 
 ### 1.7 Thêm kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`

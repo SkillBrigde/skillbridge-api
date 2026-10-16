@@ -97,6 +97,61 @@ namespace SkillBridge.Modules.Profiles.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorExperience", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("company_name");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("EndDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_date");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_current");
+
+                    b.Property<Guid>("MentorProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mentor_profile_id");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("position");
+
+                    b.Property<DateTimeOffset>("StartDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MentorProfileId", "StartDate")
+                        .HasDatabaseName("ix_mentor_experiences_profile_start_date");
+
+                    b.ToTable("mentor_experiences", "profiles", t =>
+                        {
+                            t.HasCheckConstraint("ck_mentor_experiences_current_state", "(is_current AND end_date IS NULL) OR (NOT is_current AND end_date IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_mentor_experiences_date_range", "end_date IS NULL OR end_date >= start_date");
+
+                            t.HasCheckConstraint("ck_mentor_experiences_profile_id", "mentor_profile_id <> '00000000-0000-0000-0000-000000000000'");
+                        });
+                });
+
             modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -257,6 +312,15 @@ namespace SkillBridge.Modules.Profiles.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_mentor_skills_years_of_experience", "years_of_experience >= 0");
                         });
+                });
+
+            modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorExperience", b =>
+                {
+                    b.HasOne("SkillBridge.Modules.Profiles.Domain.MentorProfile", null)
+                        .WithMany()
+                        .HasForeignKey("MentorProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SkillBridge.Modules.Profiles.Domain.MentorSkill", b =>
