@@ -75,5 +75,3 @@ public sealed record ChatResult<T>(bool IsSuccess, T? Value, ChatError? Error)
         ? new(true, result.Value, null) : new(false, default, new(result.Error.Code, result.Error.Description));
     public static ChatResult<T> Unauthorized() => new(false, default, new("Messaging.SessionExpired", "Authenticate again."));
 }
-
-
