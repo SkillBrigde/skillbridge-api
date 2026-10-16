@@ -12,11 +12,7 @@ public static class GetSchedulingSettingsEndpoint
 {
     public static void MapGetSchedulingSettings(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/v1/scheduling")
-            .WithTags("Scheduling")
-            .RequireAuthorization(policy => policy.RequireRole("Mentor"));
-
-        group.MapGet("/settings", async (
+        endpoints.MapGet("/settings", async (
             ICurrentUser currentUser,
             ISender sender,
             CancellationToken cancellationToken) =>

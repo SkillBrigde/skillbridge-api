@@ -18,11 +18,7 @@ public sealed class SchedulingSettings : AggregateRoot<Guid>
 
     public static Result<SchedulingSettings> Create(
         Guid mentorId,
-        int sessionDurationMinutes,
-        int bufferTimeMinutes,
-        int leadTimeHours,
-        int maxDaysInAdvance,
-        string? timezone,
+        SchedulingSettingsValues values,
         DateTimeOffset now)
     {
         if (mentorId == Guid.Empty)
@@ -36,29 +32,53 @@ public sealed class SchedulingSettings : AggregateRoot<Guid>
             MentorId = mentorId,
             CreatedAtUtc = now
         };
-        var updated = settings.Update(
-            sessionDurationMinutes,
-            bufferTimeMinutes,
-            leadTimeHours,
-            maxDaysInAdvance,
-            timezone,
-            now);
-        if (updated.IsFailure)
-        {
-            return updated.Error;
-        }
+        settings.Apply(values, now);
 
         settings.UpdatedAtUtc = null;
         return settings;
     }
 
-    public Result Update(
+    public void Update(SchedulingSettingsValues values, DateTimeOffset now) => Apply(values, now);
+
+    private void Apply(SchedulingSettingsValues values, DateTimeOffset now)
+    {
+        SessionDurationMinutes = values.SessionDurationMinutes;
+        BufferTimeMinutes = values.BufferTimeMinutes;
+        LeadTimeHours = values.LeadTimeHours;
+        MaxDaysInAdvance = values.MaxDaysInAdvance;
+        Timezone = values.Timezone;
+        UpdatedAtUtc = now;
+    }
+}
+
+public sealed record SchedulingSettingsValues
+{
+    private SchedulingSettingsValues(
         int sessionDurationMinutes,
         int bufferTimeMinutes,
         int leadTimeHours,
         int maxDaysInAdvance,
-        string? timezone,
-        DateTimeOffset now)
+        string timezone)
+    {
+        SessionDurationMinutes = sessionDurationMinutes;
+        BufferTimeMinutes = bufferTimeMinutes;
+        LeadTimeHours = leadTimeHours;
+        MaxDaysInAdvance = maxDaysInAdvance;
+        Timezone = timezone;
+    }
+
+    public int SessionDurationMinutes { get; }
+    public int BufferTimeMinutes { get; }
+    public int LeadTimeHours { get; }
+    public int MaxDaysInAdvance { get; }
+    public string Timezone { get; }
+
+    public static Result<SchedulingSettingsValues> Create(
+        int sessionDurationMinutes,
+        int bufferTimeMinutes,
+        int leadTimeHours,
+        int maxDaysInAdvance,
+        string? timezone)
     {
         var validationError = SchedulingSettingsRules.Validate(
             sessionDurationMinutes,
@@ -68,16 +88,15 @@ public sealed class SchedulingSettings : AggregateRoot<Guid>
             timezone);
         if (validationError != Error.None)
         {
-            return Result.Failure(validationError);
+            return validationError;
         }
 
-        SessionDurationMinutes = sessionDurationMinutes;
-        BufferTimeMinutes = bufferTimeMinutes;
-        LeadTimeHours = leadTimeHours;
-        MaxDaysInAdvance = maxDaysInAdvance;
-        Timezone = timezone!.Trim();
-        UpdatedAtUtc = now;
-        return Result.Success();
+        return new SchedulingSettingsValues(
+            sessionDurationMinutes,
+            bufferTimeMinutes,
+            leadTimeHours,
+            maxDaysInAdvance,
+            timezone!.Trim());
     }
 }
 
@@ -90,35 +109,35 @@ internal static class SchedulingSettingsRules
         int maxDaysInAdvance,
         string? timezone)
     {
-        if (sessionDurationMinutes is < 15 or > 240 || sessionDurationMinutes % 15 != 0)
+        if (!IsValidSessionDuration(sessionDurationMinutes))
         {
             return Error.Validation(
                 "Scheduling.InvalidSessionDuration",
                 "Thời lượng buổi học phải từ 15 đến 240 phút và là bội số của 15.");
         }
 
-        if (bufferTimeMinutes is < 0 or > 120 || bufferTimeMinutes % 5 != 0)
+        if (!IsValidBufferTime(bufferTimeMinutes))
         {
             return Error.Validation(
                 "Scheduling.InvalidBufferTime",
                 "Thời gian nghỉ phải từ 0 đến 120 phút và là bội số của 5.");
         }
 
-        if (leadTimeHours is < 0 or > 720)
+        if (!IsValidLeadTime(leadTimeHours))
         {
             return Error.Validation(
                 "Scheduling.InvalidLeadTime",
                 "Thời gian đặt trước phải từ 0 đến 720 giờ.");
         }
 
-        if (maxDaysInAdvance is < 1 or > 365)
+        if (!IsValidAdvanceWindow(maxDaysInAdvance))
         {
             return Error.Validation(
                 "Scheduling.InvalidAdvanceWindow",
                 "Số ngày cho phép đặt trước phải từ 1 đến 365 ngày.");
         }
 
-        if (leadTimeHours > maxDaysInAdvance * 24)
+        if (!IsValidBookingWindow(leadTimeHours, maxDaysInAdvance))
         {
             return Error.Validation(
                 "Scheduling.InvalidBookingWindow",
@@ -134,6 +153,19 @@ internal static class SchedulingSettingsRules
 
         return Error.None;
     }
+
+    public static bool IsValidSessionDuration(int value) =>
+        value is >= 15 and <= 240 && value % 15 == 0;
+
+    public static bool IsValidBufferTime(int value) =>
+        value is >= 0 and <= 120 && value % 5 == 0;
+
+    public static bool IsValidLeadTime(int value) => value is >= 0 and <= 720;
+
+    public static bool IsValidAdvanceWindow(int value) => value is >= 1 and <= 365;
+
+    public static bool IsValidBookingWindow(int leadTimeHours, int maxDaysInAdvance) =>
+        leadTimeHours <= maxDaysInAdvance * 24;
 
     public static bool IsValidTimezone(string? timezone)
     {

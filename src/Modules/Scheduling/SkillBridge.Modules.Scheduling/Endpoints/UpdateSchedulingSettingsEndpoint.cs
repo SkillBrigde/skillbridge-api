@@ -13,11 +13,7 @@ public static class UpdateSchedulingSettingsEndpoint
 {
     public static void MapUpdateSchedulingSettings(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/v1/scheduling")
-            .WithTags("Scheduling")
-            .RequireAuthorization(policy => policy.RequireRole("Mentor"));
-
-        group.MapPut("/settings", async (
+        endpoints.MapPut("/settings", async (
             UpdateSchedulingSettingsRequest request,
             ICurrentUser currentUser,
             ISender sender,

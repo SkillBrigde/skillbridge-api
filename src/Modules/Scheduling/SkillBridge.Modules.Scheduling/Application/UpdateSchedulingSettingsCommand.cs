@@ -22,17 +22,21 @@ public sealed class UpdateSchedulingSettingsCommandValidator : AbstractValidator
     {
         RuleFor(command => command.UserId).NotEmpty();
         RuleFor(command => command.SessionDurationMinutes)
-            .InclusiveBetween(15, 240)
-            .Must(value => value % 15 == 0)
-            .WithMessage("Thời lượng buổi học phải là bội số của 15 phút.");
+            .Must(SchedulingSettingsRules.IsValidSessionDuration)
+            .WithMessage("Thời lượng buổi học phải từ 15 đến 240 phút và là bội số của 15.");
         RuleFor(command => command.BufferTimeMinutes)
-            .InclusiveBetween(0, 120)
-            .Must(value => value % 5 == 0)
-            .WithMessage("Thời gian nghỉ phải là bội số của 5 phút.");
-        RuleFor(command => command.LeadTimeHours).InclusiveBetween(0, 720);
-        RuleFor(command => command.MaxDaysInAdvance).InclusiveBetween(1, 365);
+            .Must(SchedulingSettingsRules.IsValidBufferTime)
+            .WithMessage("Thời gian nghỉ phải từ 0 đến 120 phút và là bội số của 5.");
+        RuleFor(command => command.LeadTimeHours)
+            .Must(SchedulingSettingsRules.IsValidLeadTime)
+            .WithMessage("Thời gian đặt trước phải từ 0 đến 720 giờ.");
+        RuleFor(command => command.MaxDaysInAdvance)
+            .Must(SchedulingSettingsRules.IsValidAdvanceWindow)
+            .WithMessage("Số ngày cho phép đặt trước phải từ 1 đến 365 ngày.");
         RuleFor(command => command)
-            .Must(command => command.LeadTimeHours <= command.MaxDaysInAdvance * 24)
+            .Must(command => SchedulingSettingsRules.IsValidBookingWindow(
+                command.LeadTimeHours,
+                command.MaxDaysInAdvance))
             .WithName("leadTimeHours")
             .WithMessage("Thời gian đặt trước tối thiểu không được vượt quá cửa sổ cho phép đặt lịch.");
         RuleFor(command => command.Timezone)
@@ -56,52 +60,59 @@ public sealed class UpdateSchedulingSettingsCommandHandler(
             return Result.Failure(mentorId.Error);
         }
 
+        var values = SchedulingSettingsValues.Create(
+            request.SessionDurationMinutes,
+            request.BufferTimeMinutes,
+            request.LeadTimeHours,
+            request.MaxDaysInAdvance,
+            request.Timezone);
+        if (values.IsFailure)
+        {
+            return Result.Failure(values.Error);
+        }
+
         var settings = await dbContext.SchedulingSettings
             .SingleOrDefaultAsync(item => item.MentorId == mentorId.Value, cancellationToken);
         var now = timeProvider.GetUtcNow();
+        SchedulingSettings? createdSettings = null;
 
         if (settings is null)
         {
             var created = Domain.SchedulingSettings.Create(
                 mentorId.Value,
-                request.SessionDurationMinutes,
-                request.BufferTimeMinutes,
-                request.LeadTimeHours,
-                request.MaxDaysInAdvance,
-                request.Timezone,
+                values.Value,
                 now);
             if (created.IsFailure)
             {
                 return Result.Failure(created.Error);
             }
 
-            dbContext.SchedulingSettings.Add(created.Value);
+            createdSettings = created.Value;
+            dbContext.SchedulingSettings.Add(createdSettings);
         }
         else
         {
-            var updated = settings.Update(
-                request.SessionDurationMinutes,
-                request.BufferTimeMinutes,
-                request.LeadTimeHours,
-                request.MaxDaysInAdvance,
-                request.Timezone,
-                now);
-            if (updated.IsFailure)
-            {
-                return updated;
-            }
+            settings.Update(values.Value, now);
         }
 
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
-        { SqlState: PostgresErrorCodes.UniqueViolation })
+        catch (DbUpdateException exception) when (
+            createdSettings is not null &&
+            exception.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: "ux_scheduling_settings_mentor_id"
+            })
         {
-            return Result.Failure(Error.Conflict(
-                "Scheduling.SettingsAlreadyExist",
-                "Cài đặt lịch vừa được tạo bởi một yêu cầu khác. Vui lòng gửi lại cập nhật."));
+            dbContext.Entry(createdSettings).State = EntityState.Detached;
+
+            var concurrentSettings = await dbContext.SchedulingSettings
+                .SingleAsync(item => item.MentorId == mentorId.Value, cancellationToken);
+            concurrentSettings.Update(values.Value, timeProvider.GetUtcNow());
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         return Result.Success();

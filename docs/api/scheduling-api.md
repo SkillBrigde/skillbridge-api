@@ -11,6 +11,14 @@
 - `buffer_time_minutes`: khoảng thời gian nghỉ giữa 2 buổi mentoring.
 - `lead_time_hours`: người học (mentee) phải đặt lịch trước ít nhất số giờ quy định này.
 
+**Quy ước thời gian dùng cho các API Scheduling:**
+- `timezone` dùng mã IANA hoặc `UTC`; availability rule lưu giờ địa phương theo múi giờ của Mentor.
+- Slots thực tế được lưu bằng UTC và được sinh sẵn đến giới hạn `maxDaysInAdvance`; thay đổi settings, rule hoặc time-off sẽ tái sinh phần lịch bị ảnh hưởng trong cùng transaction.
+- `startDate`, `endDate` của truy vấn slots và time-off đều bao gồm cả ngày đầu lẫn ngày cuối theo múi giờ Mentor.
+- Khi đổi giờ mùa hè (DST), giờ địa phương không tồn tại sẽ bị bỏ qua; giờ bị lặp dùng lần xuất hiện sớm hơn để không sinh trùng slot.
+- Các availability rule đang hoạt động trong cùng một thứ không được chồng lấn.
+- Time-off khóa slot `Available`; nếu chồng lên slot `Held` hoặc `Booked`, yêu cầu bị từ chối và không tự hủy lịch đã giữ/đặt.
+
 ---
 
 ## 1. Lấy cài đặt lịch (Settings)

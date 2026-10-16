@@ -1,4 +1,5 @@
-
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -29,8 +30,13 @@ public sealed class SchedulingModule : ModuleDefinition
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         base.MapEndpoints(endpoints);
-        endpoints.MapGetSchedulingSettings();
-        endpoints.MapUpdateSchedulingSettings();
+
+        var group = endpoints.MapGroup("/api/v1/scheduling")
+            .WithTags("Scheduling")
+            .RequireAuthorization(policy => policy.RequireRole("Mentor"));
+
+        group.MapGetSchedulingSettings();
+        group.MapUpdateSchedulingSettings();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)
