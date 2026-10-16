@@ -38,6 +38,7 @@ public sealed class ProfilesModule : ModuleDefinition
         endpoints.MapUpdateMentorExperience();
         endpoints.MapRemoveMentorExperience();
         endpoints.MapAddMentorCertification();
+        endpoints.MapRemoveMentorCertification();
         endpoints.MapGetMenteeProfile();
         endpoints.MapUpdateMenteeProfile();
     }

@@ -299,6 +299,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.11 Xóa chứng chỉ
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/certifications/{certificationId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`
