@@ -33,6 +33,7 @@ public sealed class ProfilesModule : ModuleDefinition
         endpoints.MapSearchPublicMentors();
         endpoints.MapUpdateMentorProfile();
         endpoints.MapAddMentorSkill();
+        endpoints.MapRemoveMentorSkill();
         endpoints.MapGetMenteeProfile();
         endpoints.MapUpdateMenteeProfile();
     }

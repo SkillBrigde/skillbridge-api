@@ -209,10 +209,11 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.6 Xóa kỹ năng
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/skills/{skillId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`
-- **Mô tả**: Bỏ một kỹ năng khỏi hồ sơ. (Lưu ý: skillId ở đây là ID của bản ghi `mentor_skills` hoặc ID kỹ năng từ Catalog, tuỳ thiết kế hệ thống).
+- **Mô tả**: Bỏ một kỹ năng khỏi hồ sơ; `skillId` là ID kỹ năng từ Catalog.
 
 **Responses**
 - `204 No Content`: Xóa thành công.
