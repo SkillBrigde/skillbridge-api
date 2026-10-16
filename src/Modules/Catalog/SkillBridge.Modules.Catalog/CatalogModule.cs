@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SkillBridge.BuildingBlocks.Contracts;
 using SkillBridge.Modules.Catalog.Application;
 using SkillBridge.Modules.Catalog.Endpoints;
@@ -22,12 +23,15 @@ public sealed class CatalogModule : ModuleDefinition
         services.AddDbContext<CatalogDbContext>(options => options.UseNpgsql(connectionString,
             npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", CatalogDbContext.Schema)));
         services.AddScoped<CatalogService>();
+        services.AddScoped<MentorServices>();
+        services.TryAddScoped<IMentorDirectory, UnavailableMentorDirectory>();
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         base.MapEndpoints(endpoints);
         endpoints.MapCatalogEndpoints();
+        endpoints.MapMentorServiceEndpoints();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)
