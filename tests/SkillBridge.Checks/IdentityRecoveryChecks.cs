@@ -9,11 +9,11 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Identity.Application;
-using SkillBridge.Modules.Identity.Application.Commands.ForgotPassword;
-using SkillBridge.Modules.Identity.Application.Commands.ResetPassword;
+using SkillBridge.Modules.Identity.Application.Auth.ForgotPassword;
+using SkillBridge.Modules.Identity.Application.Auth.ResetPassword;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 
 namespace SkillBridge.Checks;
 

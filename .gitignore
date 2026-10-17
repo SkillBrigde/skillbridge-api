@@ -9,5 +9,7 @@ obj/
 TestResults/
 coverage/
 .env
+.env.*
+!.env.example
 appsettings.Local.json
 bundles/

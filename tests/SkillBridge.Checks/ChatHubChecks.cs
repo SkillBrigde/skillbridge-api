@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 
 namespace SkillBridge.Checks;
 

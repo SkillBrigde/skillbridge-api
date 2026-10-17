@@ -15,16 +15,17 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using SkillBridge.Api.Common;
 using SkillBridge.Api.Middleware;
+using SkillBridge.Api.Security;
+using SkillBridge.BuildingBlocks;
 using SkillBridge.BuildingBlocks.Events;
-using SkillBridge.BuildingBlocks.Extensions;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Catalog;
 using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
-using SkillBridge.Modules.Identity.Application.Commands.Login;
-using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
+using SkillBridge.Modules.Identity.Application.Auth.Login;
+using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
 using SkillBridge.Modules.Identity.Domain;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
@@ -63,7 +64,9 @@ internal static class DatabaseChecks
             ["ConnectionStrings:Database"] = connectionString,
             ["Jwt:SecretKey"] = "Test-only-signing-key-created-for-local-checks-never-use-in-production-2026",
             ["Jwt:Issuer"] = "SkillBridge.Checks",
-            ["Jwt:Audience"] = "SkillBridge.Checks"
+            ["Jwt:Audience"] = "SkillBridge.Checks",
+            ["Redis:ConnectionString"] = Environment.GetEnvironmentVariable("Redis__ConnectionString") ?? "127.0.0.1:6379",
+            ["RateLimiting:Login:PermitLimit"] = "100"
         });
         builder.Logging.ClearProviders();
         builder.Services.AddHttpContextAccessor();
@@ -82,7 +85,8 @@ internal static class DatabaseChecks
             typeof(CatalogModule).Assembly,
             typeof(MessagingModule).Assembly,
             typeof(ProfilesModule).Assembly);
-        builder.Services.AddJwtSecurity(builder.Configuration);
+        builder.Services.AddSecurityServices(builder.Configuration);
+        builder.Services.AddApiAuthentication();
         builder.Services.AddMessagingComposition();
         var messaging = new MessagingModule();
         messaging.AddServices(builder.Services, builder.Configuration);
