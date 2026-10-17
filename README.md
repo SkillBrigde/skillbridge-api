@@ -28,6 +28,7 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 | 📘 **Hướng Dẫn Cài Đặt & Phát Triển**           | [docs/setup-guide.md](docs/setup-guide.md)                                                                                | Các bước setup, chạy Docker, test API, quy chuẩn CI trước khi tạo PR.                                                               |
 | 🗺️ **Tổng Quan Hệ Thống & 7 Bounded Contexts**  | [docs/system-overview.md](docs/system-overview.md)                                                                        | Bức tranh tổng quan, C4 Container, Next.js BFF Zero-Token, Dual Payment Gateway.                                                    |
 | 🗄️ **Thiết Kế Cơ Sở Dữ Liệu Chi Tiết**          | [docs/database-design.md](docs/database-design.md)                                                                        | Sơ đồ ERD, 7 Bounded Contexts / 24 bảng chuyên trách, kiểu dữ liệu, index.                                                          |
+| **Migration database**                        | [docs/database-migrations.md](docs/database-migrations.md)                                                                | Tạo/xuất SQL, CompleteIdentitySchema và xử lý tài khoản legacy trước khi nâng cấp. |
 | ⚙️ **Chi Tiết Luồng Thực Thi Mã Nguồn**         | [docs/code-runtime-flow.md](docs/code-runtime-flow.md)                                                                    | Giải thích file-by-file vòng đời khởi động và luồng xử lý một HTTP Request.                                                         |
 | 🤖 **Bộ Prompt / Skill Cho AI Coding**          | [docs/chatgpt-skill-prompt.md](docs/chatgpt-skill-prompt.md)                                                              | Bộ chỉ dẫn để nạp vào AI sinh code chuẩn DDD không vi phạm module.                                                                  |
 | **Rà soát bảo mật 2026-10-17**                 | [docs/security-review.md](docs/security-review.md)                                                                      | Các chỉnh sửa quản lý secret và vấn đề phân quyền, phiên đăng nhập còn cần xử lý. |
@@ -46,6 +47,8 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 
 Khởi động PostgreSQL 17, RabbitMQ và Redis; migration dữ liệu do từng module quản lý:
 
+Bootstrap [01-init-schemas.sql](scripts/init-db/01-init-schemas.sql) chỉ tạo extension và 10 schema khi volume PostgreSQL còn mới. EF migrations sở hữu các bảng được triển khai; [database-blueprint.sql](docs/database-blueprint.sql) chỉ là bản thiết kế tham khảo. Volume hiện có giữ nguyên; database từng tạo theo blueprint `snake_case` cần đối chiếu riêng theo [hướng dẫn migration](docs/database-migrations.md#nguồn-quản-lý-schema-và-bootstrap).
+
 ```powershell
 docker compose up -d
 ```
@@ -60,7 +63,11 @@ docker compose up -d
 
 API cần `Jwt__SecretKey`, `ConnectionStrings__Database` và thông tin RabbitMQ từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Workspace local hiện tại đã có `.env` được điền key mới và giữ thông tin kết nối local. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống.
 
+CORS và địa chỉ phụ thuộc môi trường dùng `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, `AllowedHosts`, `RabbitMq__Host` trong `.env`/biến môi trường. `launchSettings.json` tiếp tục là cấu hình chạy từ IDE; JWT issuer/audience là định danh logic, vẫn có mặc định trong JSON.
+
 Key JWT phải được sinh ngẫu nhiên bằng bộ sinh mật mã, tối thiểu 32 byte UTF-8; không đưa key thật vào Git hoặc `appsettings`. Mỗi môi trường triển khai phải cấp secret riêng. Đổi key cần khởi động lại API và làm access token ký bằng key cũ hết hiệu lực.
+
+Với database đã có dữ liệu, đọc [hướng dẫn migration](docs/database-migrations.md) trước khi chạy API Development: host tự áp dụng migration, còn `CompleteIdentitySchema` sẽ khóa tài khoản legacy và yêu cầu phục hồi mật khẩu riêng. Tạo migration/xuất SQL chưa áp dụng thay đổi vào database hiện có.
 
 ```powershell
 dotnet restore

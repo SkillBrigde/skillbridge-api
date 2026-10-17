@@ -5,10 +5,13 @@ Quy ước này áp dụng cho toàn bộ solution: API host, BuildingBlocks, c�
 ```text
 Directory.Build.props              Target framework và cấu hình C# chung
 Directory.Packages.props           Phiên bản NuGet dùng chung
+scripts/init-db/01-init-schemas.sql Extension và 10 schema cho volume PostgreSQL mới
+docs/database-blueprint.sql        Bản thiết kế SQL tham khảo, không dùng bootstrap
 src/
 ├── Api/
 │   ├── Program.cs                 Ghép các bước khởi động
 │   ├── Common/DotEnv.cs           Nạp cấu hình local trước khi tạo host
+│   ├── DesignTime/IdentityDbContextFactory.cs Tạo DbContext riêng cho EF tools
 │   ├── Extensions/               Đăng ký service và HTTP middleware
 │   ├── Modules/ModuleRegistry.cs  Danh sách và vòng đời của 10 module
 │   ├── Endpoints/HostEndpoints.cs Root, health checks, OpenAPI/Scalar
@@ -55,6 +58,10 @@ Các thư mục trong module chỉ được tạo khi có code. Quy ước áp d
 
 Thêm module bằng cách thêm project reference vào API và thêm instance trong `ModuleRegistry.Create()`. Mỗi module tự đăng ký services, endpoints và initialization qua `IModule`.
 
+EF tools dùng `Api/DesignTime/IdentityDbContextFactory.cs` để tạo IdentityDbContext từ `.env`/biến môi trường hoặc đối số cấu hình, không khởi động host hay yêu cầu JWT. Tạo migration/xuất SQL chỉ tạo file; cập nhật database là thao tác riêng. Runtime Development vẫn tự migrate khi khởi động. Xem [hướng dẫn migration](database-migrations.md) trước khi trỏ host vào database cũ.
+
+EF migrations là nguồn quản lý bảng đã triển khai. Bootstrap chỉ tạo extension/schema trên volume mới; [SQL blueprint](database-blueprint.sql) giữ vai trò thiết kế. Việc thay bootstrap không sửa volume hiện có; schema `snake_case` tạo thủ công cần reconciliation riêng trước khi dùng migration EF. Chín module khung chưa có bảng/migration nghiệp vụ được triển khai.
+
 ## Request, Command/Query và Response
 
 Endpoint nhận `*Request`, ánh xạ sang Command/Query rồi gửi MediatR. File use case giữ command/query, validator và handler cùng nhau. Kết quả trả về dùng `*Response` trong cùng nhóm nghiệp vụ.
@@ -73,4 +80,4 @@ Ví dụ: `Auth/Requests/LoginRequest.cs` → `Auth/Login/Login.cs` (`LoginComma
 
 ArchitectureTests bảo vệ ranh giới project và dependency của BuildingBlocks. IntegrationTests bao gồm test HTTP của Identity, JWT và API host; host test dùng TestServer, kiểm tra root, cả 10 probe endpoint, health, CORS và authentication mà không khởi tạo database.
 
-Các route, JSON, logic nghiệp vụ và nội dung migration được giữ nguyên trong đợt tổ chức lại này. Các việc RBAC/phiên đăng nhập vẫn được theo dõi trong [báo cáo bảo mật](security-review.md). Code ghép từ nhánh khác cần cập nhật namespace theo thư mục mới.
+Đợt tổ chức lại cấu trúc trước đó giữ nguyên route, JSON, logic nghiệp vụ và migration. Việc hoàn thiện schema sau đó được tách thành `CompleteIdentitySchema`, với chính sách khóa tài khoản legacy và yêu cầu mật khẩu mới được mô tả trong [hướng dẫn migration](database-migrations.md). Các việc RBAC/phiên đăng nhập vẫn được theo dõi trong [báo cáo bảo mật](security-review.md). Code ghép từ nhánh khác cần cập nhật namespace theo thư mục mới.

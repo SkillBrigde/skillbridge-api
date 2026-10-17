@@ -86,6 +86,10 @@ Trước khi bắt đầu, đảm bảo máy bạn đã cài đặt:
 
 Tất cả các dịch vụ phụ trợ cần thiết đã được cấu hình trong file `docker-compose.yml`.
 
+[01-init-schemas.sql](../scripts/init-db/01-init-schemas.sql) chỉ chạy khi khởi tạo volume PostgreSQL mới, tạo extension và 10 schema; không tạo bảng hoặc seed role. Bảng của module đã có code được quản lý bằng EF migrations. [database-blueprint.sql](database-blueprint.sql) là bản thiết kế tham khảo, không chạy kèm bootstrap/EF để tạo cùng các bảng.
+
+Thay bootstrap không thay đổi hoặc khởi tạo lại volume hiện có. Database từng dùng blueprint `snake_case` cần [đối chiếu schema/dữ liệu riêng](database-migrations.md#nguồn-quản-lý-schema-và-bootstrap); migration mới không tự chuyển cấu trúc đó. Không dùng `docker compose down -v` để sửa lệch schema nếu còn dữ liệu cần giữ.
+
 ### Lệnh khởi động:
 
 ```powershell
@@ -121,6 +125,16 @@ docker compose down -v
 ## 4. Cấu hình ứng dụng
 
 Credential JWT, database và RabbitMQ được nạp từ `.env` hoặc biến môi trường triển khai. `appsettings*.json` không chứa credential và Identity không còn chuỗi kết nối dự phòng. Cần điền `ConnectionStrings__Database`, `RabbitMq__Username`, `RabbitMq__Password` theo hạ tầng đang dùng; các giá trị local hiện có đã được giữ nguyên trong `.env` của workspace này.
+
+Cấu hình phụ thuộc môi trường cũng nằm trong `.env`/biến môi trường:
+
+| Biến | Mục đích |
+| --- | --- |
+| `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1` | Các frontend origin được gọi API, gồm scheme/host/port; thêm origin bằng chỉ số tiếp theo. Khi triển khai, đặt đúng origin thực tế. |
+| `AllowedHosts` | Danh sách host HTTP được chấp nhận, phân cách bằng dấu `;`; môi trường triển khai cần giới hạn theo domain thực tế. |
+| `RabbitMq__Host`, `RabbitMq__Username`, `RabbitMq__Password` | Địa chỉ và thông tin truy cập broker của môi trường. |
+
+Các origin, AllowedHosts và thông tin RabbitMQ local hiện có được giữ nguyên khi chuyển khỏi JSON. `AllowedHosts` không đặt địa chỉ lắng nghe của API; các profile/cổng trong `launchSettings.json` vẫn là cấu hình IDE. JWT issuer/audience và thời hạn token tiếp tục là mặc định logic trong JSON.
 
 `Jwt__SecretKey` trong `.env.example` cố ý để trống. Key thật chỉ đặt trong `.env` được Git/Docker bỏ qua hoặc biến môi trường triển khai; dùng bộ sinh ngẫu nhiên mật mã, tối thiểu 32 byte UTF-8. API dừng khởi động nếu thiếu key hoặc key ngắn hơn mức này.
 
@@ -160,6 +174,8 @@ Kiểm tra thông tin kết nối DB/broker trong file mới theo hạ tầng lo
 ## 5. Biên dịch và Chạy ứng dụng API
 
 Mở terminal tại thư mục gốc của dự án:
+
+Nếu database đã có dữ liệu, review [CompleteIdentitySchema và cách xử lý tài khoản legacy](database-migrations.md) trước khi chạy API. Host Development vẫn tự áp dụng migration; các lệnh tạo migration/xuất SQL dùng design-time factory không khởi động host và không tự cập nhật database.
 
 ```powershell
 # 1. Restore các package NuGet

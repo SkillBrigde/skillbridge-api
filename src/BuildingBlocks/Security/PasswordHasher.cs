@@ -12,6 +12,14 @@ public class PasswordHasher : IPasswordHasher
         if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
             return false;
 
-        return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+        }
+        catch (Exception exception) when (exception is BCrypt.Net.SaltParseException or FormatException or ArgumentException)
+        {
+            // A missing or malformed stored credential must never authenticate or break the login request.
+            return false;
+        }
     }
 }
