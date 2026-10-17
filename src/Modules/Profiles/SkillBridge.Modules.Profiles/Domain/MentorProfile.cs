@@ -100,4 +100,66 @@ public sealed class MentorProfile : AggregateRoot<Guid>
         UpdatedAtUtc = now;
         return Result.Success();
     }
+
+    public Result UpdateVerificationStatus(string? verificationStatus, DateTimeOffset now)
+    {
+        var normalizedStatus = MentorVerificationStatuses.Normalize(verificationStatus);
+        if (normalizedStatus is null)
+        {
+            return Result.Failure(Error.Validation(
+                "Profiles.InvalidVerificationStatus",
+                "Trạng thái xác minh chỉ có thể là Unverified, Pending hoặc Verified."));
+        }
+
+        if (!MentorVerificationStatuses.CanTransition(VerificationStatus, normalizedStatus))
+        {
+            return Result.Failure(Error.Validation(
+                "Profiles.InvalidVerificationTransition",
+                $"Không thể chuyển trạng thái xác minh từ {VerificationStatus} sang {normalizedStatus}."));
+        }
+
+        VerificationStatus = normalizedStatus;
+        UpdatedAtUtc = now;
+        return Result.Success();
+    }
+}
+
+public static class MentorVerificationStatuses
+{
+    public const string Unverified = "Unverified";
+    public const string Pending = "Pending";
+    public const string Verified = "Verified";
+
+    private static readonly string[] SupportedStatuses = [Unverified, Pending, Verified];
+
+    public static bool IsSupported(string? status) => Normalize(status) is not null;
+
+    public static bool CanTransition(string currentStatus, string targetStatus)
+    {
+        if (string.Equals(currentStatus, targetStatus, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return currentStatus switch
+        {
+            Unverified => targetStatus is Pending or Verified,
+            Pending => targetStatus is Unverified or Verified,
+            Verified => targetStatus == Unverified,
+            "Rejected" => targetStatus is Unverified or Pending,
+            _ => false
+        };
+    }
+
+    public static string? Normalize(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        var normalized = status.Trim();
+        return SupportedStatuses.FirstOrDefault(
+            candidate => string.Equals(candidate, normalized, StringComparison.OrdinalIgnoreCase));
+    }
 }
