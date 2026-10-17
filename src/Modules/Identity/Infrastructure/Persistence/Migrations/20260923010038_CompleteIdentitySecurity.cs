@@ -6,36 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SkillBridge.Modules.Identity.Infrastructure.Persistence.Migrations;
 
 /// <inheritdoc />
-public partial class CompleteIdentitySchema : Migration
+public partial class CompleteIdentitySecurity : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Keep legacy-user validation and backfill consistent while the migration transaction runs.
-        migrationBuilder.Sql("LOCK TABLE identity.users IN ACCESS EXCLUSIVE MODE;");
-        migrationBuilder.Sql(
-            """
-            DO $legacy_users$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM identity.users
-                    WHERE ("Email" COLLATE "C") !~ '^[ -~]+$'
-                       OR length(btrim("Email")) = 0
-                ) THEN
-                    RAISE EXCEPTION 'Legacy email values require a manual normalization review before this migration.';
-                END IF;
-
-                IF EXISTS (
-                    SELECT 1 FROM identity.users
-                    GROUP BY upper(btrim("Email") COLLATE "C")
-                    HAVING count(*) > 1
-                ) THEN
-                    RAISE EXCEPTION 'Legacy emails collide after normalization; resolve them before this migration.';
-                END IF;
-            END
-            $legacy_users$;
-            """);
-
         migrationBuilder.AlterColumn<bool>(
             name: "IsActive",
             schema: "identity",
@@ -99,7 +74,8 @@ public partial class CompleteIdentitySchema : Migration
             table: "users",
             type: "character varying(256)",
             maxLength: 256,
-            nullable: true);
+            nullable: false,
+            defaultValue: "");
 
         migrationBuilder.AddColumn<string>(
             name: "PasswordHash",
@@ -107,7 +83,8 @@ public partial class CompleteIdentitySchema : Migration
             table: "users",
             type: "character varying(500)",
             maxLength: 500,
-            nullable: true);
+            nullable: false,
+            defaultValue: "");
 
         migrationBuilder.AddColumn<string>(
             name: "PhoneNumber",
@@ -123,7 +100,8 @@ public partial class CompleteIdentitySchema : Migration
             table: "users",
             type: "character varying(100)",
             maxLength: 100,
-            nullable: true);
+            nullable: false,
+            defaultValue: "");
 
         migrationBuilder.AddColumn<bool>(
             name: "TwoFactorEnabled",
@@ -140,51 +118,14 @@ public partial class CompleteIdentitySchema : Migration
             type: "timestamp with time zone",
             nullable: true);
 
-        // The old schema never stored passwords. Preserve users, but require trusted password recovery.
-        migrationBuilder.Sql(
-            """
+        // The original users table had no credentials. Preserve its rows without inventing passwords.
+        // Normalized-email collisions deliberately fail the unique index below for manual reconciliation.
+        migrationBuilder.Sql("""
             UPDATE identity.users
-            SET "NormalizedEmail" = upper(btrim("Email") COLLATE "C"),
-                "SecurityStamp" = replace(gen_random_uuid()::text, '-', ''),
-                "PasswordHash" = '!RESET_REQUIRED!',
-                "IsActive" = false;
+            SET "NormalizedEmail" = upper(btrim("Email")),
+                "SecurityStamp" = replace("Id"::text, '-', ''),
+                "IsActive" = FALSE;
             """);
-
-        migrationBuilder.AlterColumn<string>(
-            name: "NormalizedEmail",
-            schema: "identity",
-            table: "users",
-            type: "character varying(256)",
-            maxLength: 256,
-            nullable: false,
-            oldClrType: typeof(string),
-            oldType: "character varying(256)",
-            oldMaxLength: 256,
-            oldNullable: true);
-
-        migrationBuilder.AlterColumn<string>(
-            name: "PasswordHash",
-            schema: "identity",
-            table: "users",
-            type: "character varying(500)",
-            maxLength: 500,
-            nullable: false,
-            oldClrType: typeof(string),
-            oldType: "character varying(500)",
-            oldMaxLength: 500,
-            oldNullable: true);
-
-        migrationBuilder.AlterColumn<string>(
-            name: "SecurityStamp",
-            schema: "identity",
-            table: "users",
-            type: "character varying(100)",
-            maxLength: 100,
-            nullable: false,
-            oldClrType: typeof(string),
-            oldType: "character varying(100)",
-            oldMaxLength: 100,
-            oldNullable: true);
 
         migrationBuilder.CreateTable(
             name: "external_logins",
@@ -211,16 +152,34 @@ public partial class CompleteIdentitySchema : Migration
             });
 
         migrationBuilder.CreateTable(
+            name: "outbox_messages",
+            schema: "identity",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                Type = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                Content = table.Column<string>(type: "jsonb", nullable: false),
+                OccurredOnUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                ProcessedOnUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                Error = table.Column<string>(type: "text", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_outbox_messages", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
             name: "refresh_tokens",
             schema: "identity",
             columns: table => new
             {
                 Id = table.Column<Guid>(type: "uuid", nullable: false),
                 UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                Token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                Token = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                SecurityStamp = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                 ExpiresAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                 RevokedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                ReplacedByToken = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                ReplacedByToken = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                 CreatedByIp = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                 CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
             },
@@ -299,6 +258,12 @@ public partial class CompleteIdentitySchema : Migration
             column: "UserId");
 
         migrationBuilder.CreateIndex(
+            name: "IX_outbox_messages_ProcessedOnUtc",
+            schema: "identity",
+            table: "outbox_messages",
+            column: "ProcessedOnUtc");
+
+        migrationBuilder.CreateIndex(
             name: "IX_refresh_tokens_Token",
             schema: "identity",
             table: "refresh_tokens",
@@ -337,6 +302,10 @@ public partial class CompleteIdentitySchema : Migration
     {
         migrationBuilder.DropTable(
             name: "external_logins",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "outbox_messages",
             schema: "identity");
 
         migrationBuilder.DropTable(

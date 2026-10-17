@@ -1,6 +1,11 @@
 namespace SkillBridge.BuildingBlocks.Results;
 
-public class Result
+public interface IValidationResult<TSelf> where TSelf : IValidationResult<TSelf>
+{
+    static abstract TSelf Failure(Error error);
+}
+
+public class Result : IValidationResult<Result>
 {
     protected internal Result(bool isSuccess, Error error)
     {
@@ -24,7 +29,7 @@ public class Result
     public static Result<TValue> Failure<TValue>(Error error) => new(default, false, error);
 }
 
-public class Result<TValue> : Result
+public class Result<TValue> : Result, IValidationResult<Result<TValue>>
 {
     private readonly TValue? _value;
 

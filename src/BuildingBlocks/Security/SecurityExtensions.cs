@@ -10,12 +10,10 @@ public static class SecurityExtensions
     {
         var jwtSettings = new JwtSettings();
         configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
-
         if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey) || Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32)
         {
             throw new InvalidOperationException("Configure Jwt__SecretKey with at least 32 UTF-8 bytes before starting the API.");
         }
-
         services.AddSingleton(jwtSettings);
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

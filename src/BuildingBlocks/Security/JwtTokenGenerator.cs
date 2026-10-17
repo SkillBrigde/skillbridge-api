@@ -15,19 +15,19 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _jwtSettings = jwtSettings;
     }
 
-    public string GenerateAccessToken(Guid userId, string email, string fullName, IEnumerable<string> roles)
+    public string GenerateAccessToken(Guid userId, string email, string fullName, IEnumerable<string> roles, string? securityStamp = null)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new(JwtRegisteredClaimNames.Email, email),
             new(JwtRegisteredClaimNames.Name, fullName),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("security_stamp", securityStamp ?? Guid.NewGuid().ToString("N"))
         };
 
         foreach (var role in roles)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
             claims.Add(new Claim("role", role));
         }
 

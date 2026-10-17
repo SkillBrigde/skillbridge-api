@@ -64,12 +64,13 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
             userId: user.Id,
             token: newRawRefreshToken,
             expiresAtUtc: DateTimeOffset.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+            securityStamp: user.SecurityStamp,
             createdByIp: request.IpAddress
         );
 
         _dbContext.RefreshTokens.Add(newRefreshToken);
 
-        var newAccessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role]);
+        var newAccessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role], user.SecurityStamp);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var response = new AuthResponse(

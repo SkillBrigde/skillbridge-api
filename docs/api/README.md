@@ -1,6 +1,6 @@
 # Tài Liệu API Contracts - Nền Tảng SkillBridge
 
-Tài liệu này đóng vai trò là **Hợp đồng giao tiếp (API Contract)** chính thức giữa Backend (.NET 10 API) và Frontend (Next.js 16 BFF Web Portal).  
+Tài liệu này đóng vai trò là **Hợp đồng giao tiếp (API Contract)** chính thức giữa Backend (.NET 10 API) và Frontend (Next.js 16 BFF Web Portal).
 Mọi thay đổi về Request Body, Response Schema hoặc Status Code bắt buộc phải được cập nhật tại thư mục này trước khi triển khai code.
 
 ---
@@ -35,24 +35,27 @@ Toàn bộ hệ thống được chia thành **10 Modules độc lập**, mỗi 
 - Trình duyệt giao tiếp với Next.js BFF qua Cookie bảo mật cao: `Set-Cookie: __Host-session=...; HttpOnly; Secure; SameSite=Strict`.
 - Next.js BFF gọi sang .NET 10 API qua Header: `Authorization: Bearer <access_token>`.
 
-### Chuẩn Định Dạng Phản Hồi (Envelope Pattern)
+### Định dạng phản hồi thực tế
+
+Identity và Catalog trả DTO trực tiếp theo các contract chi tiết; các lệnh không có dữ liệu trả `204 No Content`. Không bọc thêm envelope `isSuccess/data/error`. Các module chưa triển khai cần chốt contract trước khi bổ sung API.
+
+Ví dụ đăng ký (`201 Created`):
 ```json
 {
-  "isSuccess": true,
-  "data": { ... },
-  "error": null
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
-Khi có lỗi:
+Lỗi nghiệp vụ dùng `Result`/`Error`, được chuyển sang Problem Details với mã HTTP phù hợp. Các extension (`errors`, `correlationId`) nằm trực tiếp trong JSON, không có object `extensions` bọc ngoài:
 ```json
 {
-  "isSuccess": false,
-  "data": null,
-  "error": {
-    "code": "Slot.AlreadyBooked",
-    "message": "Khung giờ này đã có người giữ chỗ hoặc đã được đặt.",
-    "type": "Conflict"
-  }
+  "title": "Validation.Failed",
+  "status": 400,
+  "detail": "Một hoặc nhiều trường dữ liệu không hợp lệ.",
+  "instance": "/api/v1/identity/auth/register",
+  "correlationId": "abc123",
+  "errors": { "Email": ["Email không được để trống."] }
 }
 ```
+
+Middleware xác thực/phân quyền có thể trả `401`/`403` không có body. Bộ giới hạn các endpoint auth trả `429` sau 10 yêu cầu/phút cho mỗi địa chỉ IP và đường dẫn. Đằng sau proxy, cần cấu hình proxy tin cậy trước khi dùng forwarded headers; không tự tin header IP từ client.

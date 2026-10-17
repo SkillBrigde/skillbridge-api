@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace SkillBridge.BuildingBlocks.Security;
 
 public class PasswordHasher : IPasswordHasher
@@ -9,7 +11,8 @@ public class PasswordHasher : IPasswordHasher
 
     public bool VerifyPassword(string password, string passwordHash)
     {
-        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash)
+            || Encoding.UTF8.GetByteCount(password) > 72)
             return false;
 
         try

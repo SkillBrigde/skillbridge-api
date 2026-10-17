@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SkillBridge.BuildingBlocks.Results.Pagination;
 
 public sealed record PagedResult<T>

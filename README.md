@@ -99,6 +99,8 @@ dotnet build SkillBridge.slnx --configuration Release --warnaserror
 dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
 ```
 
+Kiểm thử PostgreSQL và HTTP thực tế: [hướng dẫn checks](tests/SkillBridge.Checks/README.md).
+
 ---
 
 ## 📁 Quy ước cấu trúc nội bộ của mỗi Module

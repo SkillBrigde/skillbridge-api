@@ -91,12 +91,13 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
         _dbContext.Users.Add(user);
 
         // Tạo access token & refresh token
-        var accessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role]);
+        var accessToken = _jwtTokenGenerator.GenerateAccessToken(user.Id, user.Email, user.FullName, [user.Role], user.SecurityStamp);
         var rawRefreshToken = _jwtTokenGenerator.GenerateRefreshToken();
         var refreshToken = Domain.RefreshToken.Create(
             userId: user.Id,
             token: rawRefreshToken,
-            expiresAtUtc: DateTimeOffset.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
+            expiresAtUtc: DateTimeOffset.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+            securityStamp: user.SecurityStamp
         );
         _dbContext.RefreshTokens.Add(refreshToken);
 

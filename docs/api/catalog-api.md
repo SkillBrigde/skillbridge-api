@@ -5,6 +5,19 @@
 **Trách nhiệm:** Quản lý cây danh mục kỹ năng, chủ đề mentoring, tag tìm kiếm.  
 **Authentication:** JWT Bearer Token
 
+### Quy tắc triển khai
+
+- Các API đọc cho phép anonymous; API ghi yêu cầu role `Admin`. Payload thành công giữ nguyên các DTO bên dưới, lỗi dùng ProblemDetails (`400`, `404`, `409`).
+- Tên bắt buộc, tối đa 150 ký tự. Slug được tạo từ tên, bỏ dấu tiếng Việt (bao gồm `đ`), dùng chữ Latin thường, chữ số và dấu `-`. Tên không tạo được slug hợp lệ bị từ chối. Slug duy nhất trong từng loại dữ liệu; trùng slug trả `409`, kể cả khi hai request chạy đồng thời. Slug của category đã xóa vẫn được giữ.
+- Mô tả tối đa 4000 ký tự; `iconUrl` nếu có phải là URL HTTP/HTTPS tối đa 2048 ký tự; `sortOrder >= 0`.
+- Category cha, category của skill và tag IDs phải tồn tại, category chưa bị xóa; tham chiếu không hợp lệ trả `400`. Cây category không được có chu trình (`409`) và có tối đa 16 cấp (`400`), bao gồm toàn bộ cây con khi đổi danh mục cha. Xóa mềm category còn danh mục con chưa xóa hoặc còn skill trả `409`; hãy chuyển các bản ghi phụ thuộc trước. Category đã xóa bị ẩn khỏi API và không thể cập nhật lại.
+- `isActive` là trạng thái hiển thị trong DTO; API đọc trả cả bản ghi active và inactive, trừ category đã xóa. Đổi category sang inactive không tự thay đổi các skill hoặc danh mục con.
+- `GET /categories` và `GET /tags` trả toàn bộ danh sách, một trang, không cắt dữ liệu. `pageSize` tối thiểu lần lượt là 100 và 50, tăng theo số item nếu cần; ở dạng cây, `totalCount` đếm root items. Envelope phân trang có thêm `hasPreviousPage` và `hasNextPage`. Thứ tự category: `sortOrder`, `name`, `id`; skill/tag: `name`, `id`.
+- Phân trang skills yêu cầu `page >= 1`, `1 <= pageSize <= 100` và offset không vượt `Int32.MaxValue`; sai trả `400`. `search` tối đa 150 ký tự, tìm chuỗi con không phân biệt hoa thường; `%` và `_` là ký tự literal. Tối đa 100 `tagIds`; ID trùng được loại bỏ; bỏ trống hoặc `null` tương đương danh sách rỗng. PUT thay thế toàn bộ tags.
+- Ghi dữ liệu dùng transaction Serializable. Xung đột cập nhật đồng thời trả `409 Catalog.ConcurrentChange`; client có thể gửi lại thao tác sau khi đọc lại dữ liệu.
+- Tạo skill lưu `SkillCreatedIntegrationEvent` vào `catalog.outbox_messages` trong cùng transaction với skill và tags. **Dispatcher RabbitMQ/inbox consumer chưa được triển khai**: sự kiện được lưu bền vững nhưng chưa được chuyển tới module khác.
+- `mentor_services` trong database blueprint chưa được triển khai trong đợt này vì 11 endpoint bên dưới chưa định nghĩa contract dịch vụ mentor.
+
 ---
 
 ## 1. Lấy danh sách Categories
@@ -82,8 +95,8 @@
 ### Lỗi (404 Not Found)
 ```json
 {
-  "type": "https://tools.ietf.org/html/rfc7807",
-  "title": "Not Found",
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Catalog.CategoryNotFound",
   "status": 404,
   "detail": "Category không tồn tại.",
   "instance": "/api/v1/catalog/categories/3fa85f64-5717-4562-b3fc-2c963f66afa6"
@@ -128,16 +141,12 @@
 ### Lỗi (400 Bad Request)
 ```json
 {
-  "type": "https://tools.ietf.org/html/rfc7807",
-  "title": "Validation Error",
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Catalog.InvalidName",
   "status": 400,
-  "detail": "Dữ liệu không hợp lệ",
+  "detail": "Tên phải có từ 1 đến 150 ký tự và không chứa ký tự điều khiển.",
   "instance": "/api/v1/catalog/categories",
-  "extensions": {
-    "errors": {
-      "name": ["Tên danh mục là bắt buộc"]
-    }
-  }
+  "correlationId": "abc123"
 }
 ```
 

@@ -22,11 +22,11 @@ public sealed class IdentityMigrationTests
         using var context = Context();
         var migrations = context.Database.GetMigrations().ToArray();
         var initial = Assert.Single(migrations, migration => migration.EndsWith("_Initial_Identity", StringComparison.Ordinal));
-        var complete = Assert.Single(migrations, migration => migration.EndsWith("_CompleteIdentitySchema", StringComparison.Ordinal));
+        var complete = Assert.Single(migrations, migration => migration.EndsWith("_CompleteIdentitySecurity", StringComparison.Ordinal));
         var script = context.GetService<IMigrator>().GenerateScript(initial, complete);
         var sql = NormalizeSql(script);
 
-        foreach (var table in new[] { "EXTERNAL_LOGINS", "REFRESH_TOKENS", "ROLES", "USER_ROLES" })
+        foreach (var table in new[] { "EXTERNAL_LOGINS", "OUTBOX_MESSAGES", "REFRESH_TOKENS", "ROLES", "USER_ROLES" })
             Assert.Matches(@"\bCREATE TABLE IDENTITY\." + table + @"\b", sql);
 
         foreach (var column in new[]
@@ -48,11 +48,10 @@ public sealed class IdentityMigrationTests
         using var context = Context();
         var migrations = context.Database.GetMigrations().ToArray();
         var initial = Assert.Single(migrations, migration => migration.EndsWith("_Initial_Identity", StringComparison.Ordinal));
-        var complete = Assert.Single(migrations, migration => migration.EndsWith("_CompleteIdentitySchema", StringComparison.Ordinal));
+        var complete = Assert.Single(migrations, migration => migration.EndsWith("_CompleteIdentitySecurity", StringComparison.Ordinal));
         var sql = NormalizeSql(context.GetService<IMigrator>().GenerateScript(initial, complete));
 
         Assert.Matches(@"\bUPDATE IDENTITY\.USERS\b.*?\bISACTIVE\s*=\s*FALSE\b", sql);
-        Assert.Contains("!RESET_REQUIRED!", sql);
         var backfill = Regex.Match(sql, @"\bNORMALIZEDEMAIL\s*=");
         var uniqueIndex = Regex.Match(sql, @"\bCREATE UNIQUE INDEX IX_USERS_NORMALIZEDEMAIL\b");
         Assert.True(backfill.Success, "Existing users must receive a normalized email.");

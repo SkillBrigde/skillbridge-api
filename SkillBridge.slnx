@@ -31,5 +31,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj" />
     <Project Path="tests/IntegrationTests/SkillBridge.IntegrationTests.csproj" />
+    <Project Path="tests/SkillBridge.Checks/SkillBridge.Checks.csproj" />
   </Folder>
 </Solution>
