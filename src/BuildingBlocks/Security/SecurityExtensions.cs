@@ -1,45 +1,25 @@
 using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
 
 namespace SkillBridge.BuildingBlocks.Security;
 
 public static class SecurityExtensions
 {
-    public static IServiceCollection AddJwtSecurity(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddSecurityServices(this IServiceCollection services, IConfiguration configuration)
     {
         var jwtSettings = new JwtSettings();
         configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
+
+        if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey) || Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32)
+        {
+            throw new InvalidOperationException("Configure Jwt__SecretKey with at least 32 UTF-8 bytes before starting the API.");
+        }
+
         services.AddSingleton(jwtSettings);
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
-
-        services.AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
-        {
-            options.RequireHttpsMetadata = false;
-            options.SaveToken = true;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtSettings.Issuer,
-                ValidAudience = jwtSettings.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
-                ClockSkew = TimeSpan.Zero
-            };
-        });
-
-        services.AddAuthorization();
 
         return services;
     }

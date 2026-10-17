@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using SkillBridge.BuildingBlocks.Security;
 
-namespace SkillBridge.Api.Common;
+namespace SkillBridge.Api.Security;
 
 public sealed class CurrentUser : ICurrentUser
 {

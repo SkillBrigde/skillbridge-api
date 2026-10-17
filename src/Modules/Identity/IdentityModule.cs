@@ -16,8 +16,11 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Database")
-            ?? "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only";
+        var connectionString = configuration.GetConnectionString("Database");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("Configure ConnectionStrings__Database before starting the API.");
+        }
 
         services.AddDbContext<IdentityDbContext>(options =>
         {

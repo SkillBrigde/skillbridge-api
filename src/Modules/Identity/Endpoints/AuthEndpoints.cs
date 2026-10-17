@@ -16,6 +16,8 @@ namespace SkillBridge.Modules.Identity.Endpoints;
 
 public static class AuthEndpoints
 {
+    private const string RefreshTokenCookieName = "__Host-refresh";
+
     public static void MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/auth")
@@ -44,14 +46,7 @@ public static class AuthEndpoints
 
             if (result.IsSuccess && !string.IsNullOrEmpty(result.Value.RefreshToken))
             {
-                // Đính kèm Refresh Token vào HttpOnly Cookie bảo mật cao
-                httpContext.Response.Cookies.Append("__Host-refresh", result.Value.RefreshToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(7)
-                });
+                AppendRefreshTokenCookie(httpContext, result.Value.RefreshToken);
             }
 
             return result.ToHttpResult();
@@ -62,25 +57,13 @@ public static class AuthEndpoints
 
         group.MapPost("/refresh", async (RefreshTokenRequest? request, HttpContext httpContext, ISender sender) =>
         {
-            // Đọc Refresh Token từ Cookie hoặc từ Request Body
-            var token = request?.RefreshToken;
-            if (string.IsNullOrEmpty(token))
-            {
-                httpContext.Request.Cookies.TryGetValue("__Host-refresh", out token);
-            }
-
+            var token = GetRefreshToken(httpContext, request?.RefreshToken);
             var ip = httpContext.Connection.RemoteIpAddress?.ToString();
             var result = await sender.Send(new RefreshTokenCommand(token ?? "", ip));
 
             if (result.IsSuccess && !string.IsNullOrEmpty(result.Value.RefreshToken))
             {
-                httpContext.Response.Cookies.Append("__Host-refresh", result.Value.RefreshToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(7)
-                });
+                AppendRefreshTokenCookie(httpContext, result.Value.RefreshToken);
             }
 
             return result.ToHttpResult();
@@ -91,14 +74,9 @@ public static class AuthEndpoints
 
         group.MapPost("/logout", async (LogoutRequest? request, HttpContext httpContext, ISender sender) =>
         {
-            var token = request?.RefreshToken;
-            if (string.IsNullOrEmpty(token))
-            {
-                httpContext.Request.Cookies.TryGetValue("__Host-refresh", out token);
-            }
-
+            var token = GetRefreshToken(httpContext, request?.RefreshToken);
             var result = await sender.Send(new LogoutCommand(token));
-            httpContext.Response.Cookies.Delete("__Host-refresh");
+            httpContext.Response.Cookies.Delete(RefreshTokenCookieName);
 
             return result.ToHttpResult();
         })
@@ -120,5 +98,26 @@ public static class AuthEndpoints
         .RequireAuthorization()
         .WithName("ChangePassword")
         .WithSummary("Đổi mật khẩu tài khoản");
+    }
+
+    private static string? GetRefreshToken(HttpContext httpContext, string? bodyToken)
+    {
+        if (string.IsNullOrEmpty(bodyToken))
+        {
+            httpContext.Request.Cookies.TryGetValue(RefreshTokenCookieName, out bodyToken);
+        }
+
+        return bodyToken;
+    }
+
+    private static void AppendRefreshTokenCookie(HttpContext httpContext, string refreshToken)
+    {
+        httpContext.Response.Cookies.Append(RefreshTokenCookieName, refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        });
     }
 }

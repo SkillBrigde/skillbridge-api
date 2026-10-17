@@ -3,6 +3,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 using SkillBridge.Api.Common;
 using SkillBridge.Api.Middleware;
+using SkillBridge.Api.Security;
 using SkillBridge.BuildingBlocks.Contracts;
 using SkillBridge.BuildingBlocks.Extensions;
 using SkillBridge.BuildingBlocks.Security;
@@ -17,23 +18,19 @@ using SkillBridge.Modules.Recommendations;
 using SkillBridge.Modules.Reviews;
 using SkillBridge.Modules.Scheduling;
 
-// 0. Tự động nạp file .env vào Environment Variables trước khi cấu hình WebApplication
+// Nạp .env trước khi tạo host.
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cấu hình bối cảnh bảo mật & người dùng hiện tại (ICurrentUser)
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, CurrentUser>();
-
-// 2. Cấu hình xử lý lỗi tập trung (ProblemDetails & Global Exception Handler)
+// Chuẩn hóa lỗi API.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-// 3. Cấu hình OpenAPI (Swagger & Scalar)
+// OpenAPI và Scalar.
 builder.Services.AddOpenApi();
 
-// 4. Cấu hình CORS
+// CORS.
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>() ?? [];
@@ -58,12 +55,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 5. Cấu hình Health Checks
+// Health checks.
 builder.Services
     .AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
 
-// 6. Danh sách toàn bộ 10 Bounded Context Modules trong hệ thống
+// Các module nghiệp vụ.
 List<IModule> modules = [
     new IdentityModule(),
     new ProfilesModule(),
@@ -77,12 +74,13 @@ List<IModule> modules = [
     new RecommendationsModule()
 ];
 
-// 7. Cấu hình Enterprise BuildingBlocks (MediatR, FluentValidation, EventBus, Interceptors)
+// Hạ tầng dùng chung và xác thực HTTP.
 var moduleAssemblies = modules.Select(m => m.GetType().Assembly).Distinct().ToArray();
 builder.Services.AddBuildingBlocks(builder.Configuration, moduleAssemblies);
-builder.Services.AddJwtSecurity(builder.Configuration);
+builder.Services.AddSecurityServices(builder.Configuration);
+builder.Services.AddApiAuthentication();
 
-// 8. Đăng ký dịch vụ (DI) của từng Module độc lập
+// Đăng ký dịch vụ của từng module.
 foreach (var module in modules)
 {
     module.AddServices(builder.Services, builder.Configuration);
@@ -90,7 +88,7 @@ foreach (var module in modules)
 
 var app = builder.Build();
 
-// 9. HTTP Request Pipeline
+// HTTP pipeline.
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors("Default");
