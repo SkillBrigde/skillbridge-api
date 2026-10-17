@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SkillBridge.BuildingBlocks.RateLimiting;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Results.Pagination;
 using SkillBridge.BuildingBlocks.Security;
@@ -22,7 +23,6 @@ using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
 using SkillBridge.Modules.Identity.Application.Users.GetUsers;
 using SkillBridge.Modules.Identity.Application.Users.Responses;
 using SkillBridge.Modules.Identity.Endpoints;
-using SkillBridge.BuildingBlocks.RateLimiting;
 using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.IntegrationTests.Identity;
 

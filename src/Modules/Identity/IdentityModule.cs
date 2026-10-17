@@ -5,8 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SkillBridge.BuildingBlocks.Modules;
 using SkillBridge.Modules.Identity.Endpoints;
-using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 namespace SkillBridge.Modules.Identity;
 
 public sealed class IdentityModule : ModuleDefinition
