@@ -202,14 +202,14 @@ Khi được phân công phát triển một Module mới (ví dụ: `Catalog`),
 ### Bước 1: Tạo project classlib cho module
 
 ```powershell
-dotnet new classlib -o src/Modules/Catalog/SkillBridge.Modules.Catalog
+dotnet new classlib -n SkillBridge.Modules.Catalog -o src/Modules/Catalog
 ```
 
 Xoá file `Class1.cs` mặc định.
 
 ### Bước 2: Cấu hình file `.csproj` của Module
 
-Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj` và sửa thành:
+Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj` và sửa thành:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -220,7 +220,7 @@ Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalo
 
   <ItemGroup>
     <!-- Chỉ được reference tới BuildingBlocks, TUYỆT ĐỐI không reference module khác -->
-    <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
   </ItemGroup>
 
 </Project>
@@ -229,7 +229,7 @@ Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalo
 ### Bước 3: Thêm module vào Solution
 
 ```powershell
-dotnet sln SkillBridge.slnx add src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj --solution-folder /src/Modules/
+dotnet sln SkillBridge.slnx add src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj --solution-folder /src/Modules/
 ```
 
 ### Bước 4: Tạo cấu trúc 4 tầng nội bộ trong Module
@@ -237,7 +237,7 @@ dotnet sln SkillBridge.slnx add src/Modules/Catalog/SkillBridge.Modules.Catalog/
 Tạo các thư mục:
 
 ```text
-SkillBridge.Modules.Catalog/
+src/Modules/Catalog/
 ├── Domain/          <-- Chứa Entities, Value Objects, Domain Events, Domain Errors
 ├── Application/     <-- Chứa CQRS Commands, Queries, Validators, DTOs
 ├── Infrastructure/  <-- Chứa CatalogDbContext (Schema: "catalog"), Repositories
@@ -282,7 +282,7 @@ public sealed class CatalogModule : ModuleDefinition
 
 1. Thêm reference từ API vào Module mới:
     ```powershell
-    dotnet add src/Api/SkillBridge.Api.csproj reference src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj
+    dotnet add src/Api/SkillBridge.Api.csproj reference src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj
     ```
 2. Mở file [Program.cs](file:///d:/Projects/skillbridge-api/src/Api/Program.cs), thêm module mới vào danh sách `modules`:
     ```csharp

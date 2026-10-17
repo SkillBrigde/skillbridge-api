@@ -137,7 +137,7 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
     ```
 - Mỗi module tự đăng ký các Minimal API của mình:
     - Base class [ModuleDefinition.cs](file:///d:/Projects/skillbridge-api/src/BuildingBlocks/Contracts/ModuleDefinition.cs) tạo sẵn endpoint probe: `GET /api/v1/{routePrefix}/_module`.
-    - [IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/SkillBridge.Modules.Identity/IdentityModule.cs) đăng ký thêm:
+    - [IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/IdentityModule.cs) đăng ký thêm:
         - `GET /api/v1/identity/users/me`
         - `GET /api/v1/identity/users`
 
@@ -170,7 +170,7 @@ Giả sử Client gửi một request:
 
 ### 3. Request đến Endpoint Delegate (Minimal API)
 
-- **File**: [src/Modules/Identity/SkillBridge.Modules.Identity/IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/SkillBridge.Modules.Identity/IdentityModule.cs)
+- **File**: [src/Modules/Identity/IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/IdentityModule.cs)
 - **Đoạn code thực thi**:
 
     ```csharp
@@ -196,7 +196,7 @@ Giả sử Client gửi một request:
 - **Các bước chi tiết**:
     1. ASP.NET Core Router phân giải đường dẫn khớp với template `/api/v1/identity/users`.
     2. DI Container tự động inject instance `IdentityDbContext` vào lambda function.
-    3. `IdentityDbContext` sử dụng `UserConfiguration` ([UserConfiguration.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/SkillBridge.Modules.Identity/Infrastructure/Data/Configurations/UserConfiguration.cs)) để biết bảng cần truy vấn là `identity.users`.
+    3. `IdentityDbContext` sử dụng `UserConfiguration` ([UserConfiguration.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/Infrastructure/Data/Configurations/UserConfiguration.cs)) để biết bảng cần truy vấn là `identity.users`.
     4. Câu lệnh SQL được sinh ra:  
        `SELECT id, email, full_name, role, is_active, created_at_utc FROM identity.users;`
     5. Dữ liệu được trả về và đóng gói thành `Results.Ok(users)`.

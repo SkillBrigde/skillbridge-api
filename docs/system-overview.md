@@ -116,7 +116,7 @@ flowchart TD
 Mỗi Module là một project độc lập tuân thủ Clean Architecture:
 
 ```text
-src/Modules/{ModuleName}/SkillBridge.Modules.{ModuleName}/
+src/Modules/{ModuleName}/
 │
 ├── Domain/                         <-- Tầng Lõi (Zero Dependency)
 │   ├── {Entity}.cs                 <-- AggregateRoot<TId> hoặc Entity<TId>

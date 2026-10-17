@@ -8,24 +8,24 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project
-      Path="src/Modules/Booking/SkillBridge.Modules.Booking/SkillBridge.Modules.Booking.csproj" />
+      Path="src/Modules/Booking/SkillBridge.Modules.Booking.csproj" />
     <Project
-      Path="src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj" />
+      Path="src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj" />
     <Project
-      Path="src/Modules/Identity/SkillBridge.Modules.Identity/SkillBridge.Modules.Identity.csproj" />
+      Path="src/Modules/Identity/SkillBridge.Modules.Identity.csproj" />
     <Project
-      Path="src/Modules/Learning/SkillBridge.Modules.Learning/SkillBridge.Modules.Learning.csproj" />
+      Path="src/Modules/Learning/SkillBridge.Modules.Learning.csproj" />
     <Project
-      Path="src/Modules/Messaging/SkillBridge.Modules.Messaging/SkillBridge.Modules.Messaging.csproj" />
+      Path="src/Modules/Messaging/SkillBridge.Modules.Messaging.csproj" />
     <Project
-      Path="src/Modules/Payments/SkillBridge.Modules.Payments/SkillBridge.Modules.Payments.csproj" />
+      Path="src/Modules/Payments/SkillBridge.Modules.Payments.csproj" />
     <Project
-      Path="src/Modules/Profiles/SkillBridge.Modules.Profiles/SkillBridge.Modules.Profiles.csproj" />
+      Path="src/Modules/Profiles/SkillBridge.Modules.Profiles.csproj" />
     <Project
-      Path="src/Modules/Recommendations/SkillBridge.Modules.Recommendations/SkillBridge.Modules.Recommendations.csproj" />
+      Path="src/Modules/Recommendations/SkillBridge.Modules.Recommendations.csproj" />
     <Project
-      Path="src/Modules/Reviews/SkillBridge.Modules.Reviews/SkillBridge.Modules.Reviews.csproj" />
+      Path="src/Modules/Reviews/SkillBridge.Modules.Reviews.csproj" />
     <Project
-      Path="src/Modules/Scheduling/SkillBridge.Modules.Scheduling/SkillBridge.Modules.Scheduling.csproj" />
+      Path="src/Modules/Scheduling/SkillBridge.Modules.Scheduling.csproj" />
   </Folder>
 </Solution>

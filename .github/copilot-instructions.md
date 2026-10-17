@@ -29,7 +29,7 @@ When generating or refactoring code for this repository, you **MUST STRICTLY OBE
 
 ## 2. Standard 4-Tier Internal Module Structure
 
-Inside any module `src/Modules/{ModuleName}/SkillBridge.Modules.{ModuleName}/`:
+Inside any module `src/Modules/{ModuleName}/`:
 
 ```text
 ├── Domain/                         # Entities, Value Objects, Domain Events, Domain Errors
@@ -121,7 +121,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SkillBridge.BuildingBlocks.Modules;
+using SkillBridge.BuildingBlocks.Contracts;
 using SkillBridge.Modules.{ModuleName}.Infrastructure.Data;
 
 public sealed class {ModuleName}Module : ModuleDefinition

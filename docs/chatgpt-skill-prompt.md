@@ -20,7 +20,7 @@ Mọi code bạn viết ra BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT các q
 5. DOMAIN ENTITY PHẢI ENCAPSULATE: Không dùng public setter. Dùng private set, khởi tạo qua factory method `Create(...)`, thay đổi trạng thái qua domain methods.
 
 ### 2. CẤU TRÚC 4 TẦNG NỘI BỘ MỖI MODULE:
-Bên trong `src/Modules/{ModuleName}/SkillBridge.Modules.{ModuleName}/`:
+Bên trong `src/Modules/{ModuleName}/`:
 - `Domain/`: Entities, Value Objects, Domain Events (`IDomainEvent`), Domain Errors (`Error`).
 - `Application/`: CQRS Commands/Queries, DTOs, FluentValidation.
 - `Infrastructure/Data/`: `{ModuleName}DbContext` và `Configurations/` (`IEntityTypeConfiguration<T>`).
