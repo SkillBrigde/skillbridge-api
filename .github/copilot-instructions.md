@@ -9,21 +9,21 @@ When generating or refactoring code for this repository, you **MUST STRICTLY OBE
 ## 1. Architectural Invariants (Zero Tolerance)
 
 1. **NO Cross-Module Project References**:
-   - Modules in `src/Modules/*` must NEVER reference one another.
-   - Modules may ONLY reference `src/BuildingBlocks/SkillBridge.BuildingBlocks`.
-   - `src/Bootstrapper/SkillBridge.Api` is the composition root that references all modules.
+    - Modules in `src/Modules/*` must NEVER reference one another.
+    - Modules may ONLY reference `src/BuildingBlocks/SkillBridge.BuildingBlocks`.
+    - `src/Api` is the composition root that references all modules.
 2. **NO Business Logic in BuildingBlocks**:
-   - `BuildingBlocks` is the Shared Kernel containing ONLY technical primitives (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result`, `IModule`).
-   - NEVER place business entities (like `User`, `Course`, `Booking`) into `BuildingBlocks`.
+    - `BuildingBlocks` is the Shared Kernel containing ONLY technical primitives (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result`, `IModule`).
+    - NEVER place business entities (like `User`, `Course`, `Booking`) into `BuildingBlocks`.
 3. **NO Cross-Module Database Foreign Keys**:
-   - Each module owns a dedicated PostgreSQL schema (`identity`, `profiles`, `catalog`, `booking`, etc.).
-   - Cross-module relationships MUST only store unconstrained IDs (e.g. `public Guid MentorId { get; private set; }`). NEVER configure an EF Core Foreign Key pointing to a table in another module's schema.
+    - Each module owns a dedicated PostgreSQL schema (`identity`, `profiles`, `catalog`, `booking`, etc.).
+    - Cross-module relationships MUST only store unconstrained IDs (e.g. `public Guid MentorId { get; private set; }`). NEVER configure an EF Core Foreign Key pointing to a table in another module's schema.
 4. **NO Throwing Exceptions for Business Flow**:
-   - Do NOT throw exceptions for predictable business failures (e.g. `UserNotFoundException`).
-   - ALWAYS return `Result` or `Result<T>` using `Error.NotFound()`, `Error.Validation()`, `Error.Conflict()`.
+    - Do NOT throw exceptions for predictable business failures (e.g. `UserNotFoundException`).
+    - ALWAYS return `Result` or `Result<T>` using `Error.NotFound()`, `Error.Validation()`, `Error.Conflict()`.
 5. **NO Public Setters on Domain Entities**:
-   - Encapsulate all state changes. Use `private set` or `init` and mutate state via expressive domain methods or factory methods (`Create(...)`).
-   - Always `builder.Ignore(e => e.DomainEvents)` in EF Core entity configurations.
+    - Encapsulate all state changes. Use `private set` or `init` and mutate state via expressive domain methods or factory methods (`Create(...)`).
+    - Always `builder.Ignore(e => e.DomainEvents)` in EF Core entity configurations.
 
 ---
 
@@ -58,6 +58,7 @@ Inside any module `src/Modules/{ModuleName}/SkillBridge.Modules.{ModuleName}/`:
 ## 4. Standard Code Templates
 
 ### A. Domain Entity Template
+
 ```csharp
 namespace SkillBridge.Modules.{ModuleName}.Domain;
 
@@ -86,6 +87,7 @@ public sealed class {EntityName} : AggregateRoot<Guid>
 ```
 
 ### B. EF Core Entity Configuration Template
+
 ```csharp
 namespace SkillBridge.Modules.{ModuleName}.Infrastructure.Data.Configurations;
 
@@ -110,6 +112,7 @@ internal sealed class {EntityName}Configuration : IEntityTypeConfiguration<{Enti
 ```
 
 ### C. Module Definition Template
+
 ```csharp
 namespace SkillBridge.Modules.{ModuleName};
 

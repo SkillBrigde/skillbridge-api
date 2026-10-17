@@ -6,6 +6,7 @@ Dự án được xây dựng theo mô hình **Modular Monolith** trên nền t�
 ---
 
 ## Mục lục
+
 1. [Tổng quan kiến trúc Modular Monolith](#1-tổng-quan-kiến-trúc-modular-monolith)
 2. [Yêu cầu môi trường cài đặt (Prerequisites)](#2-yêu-cầu-môi-trường-cài-đặt-prerequisites)
 3. [Khởi động hạ tầng cục bộ với Docker Compose](#3-khởi-động-hạ-tầng-cục-bộ-với-docker-compose)
@@ -23,10 +24,10 @@ Hệ thống được đóng gói triển khai dưới dạng **một tiến tr�
 
 ```mermaid
 graph TD
-    Bootstrapper["src/Bootstrapper/SkillBridge.Api<br/>(Host API, Middleware, HealthChecks, Scalar/OpenAPI, CurrentUser)"]
-    
+    Bootstrapper["src/Api<br/>(Host API, Middleware, HealthChecks, Scalar/OpenAPI, CurrentUser)"]
+
     BB["src/BuildingBlocks/SkillBridge.BuildingBlocks<br/>(Contracts, CQRS, MediatR Behaviors, Events, Pagination, Auditing, Interceptors)"]
-    
+
     ModIdentity["src/Modules/Identity<br/>(Schema: identity)"]
     ModCatalog["src/Modules/Catalog<br/>(Schema: catalog)"]
     ModBooking["src/Modules/Booking<br/>(Schema: booking)"]
@@ -37,7 +38,7 @@ graph TD
     Bootstrapper --> ModBooking
     Bootstrapper --> ModOther
     Bootstrapper --> BB
-    
+
     ModIdentity --> BB
     ModCatalog --> BB
     ModBooking --> BB
@@ -45,6 +46,7 @@ graph TD
 ```
 
 ### Các trụ cột Enterprise trong `BuildingBlocks`:
+
 1. **Contracts**: `IModule` và `ModuleDefinition` đóng gói trọn vẹn vòng đời và probe endpoint của từng module.
 2. **CQRS**: `ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler` tích hợp sẵn Railway `Result<T>`.
 3. **Behaviors**: `ValidationBehavior` (tự động chạy FluentValidation) và `LoggingBehavior` (đo lường hiệu năng).
@@ -54,23 +56,25 @@ graph TD
 7. **Pagination**: `PaginationParams` và `PagedResult<T>` thống nhất định dạng JSON phân trang cho toàn hệ thống.
 
 ### 3 Nguyên tắc bất biến (Golden Rules):
+
 1. **Tuyệt đối không reference chéo giữa các Module**: Module `Booking` không được phép thêm project reference đến Module `Identity` hay `Catalog`.
 2. **Cô lập dữ liệu (Schema Isolation)**: Mỗi module sở hữu riêng một PostgreSQL schema (ví dụ: `identity.users`, `booking.appointments`). Module này không được đọc/ghi trực tiếp vào schema của module khác.
 3. **Giao tiếp liên module**:
-   - Truy vấn đồng bộ (Sync): Sử dụng In-Memory Dispatcher hoặc Public Contracts interface.
-   - Luồng nghiệp vụ bất đồng bộ (Async): Sử dụng **Integration Events** qua **RabbitMQ** với Transactional Outbox Pattern.
+    - Truy vấn đồng bộ (Sync): Sử dụng In-Memory Dispatcher hoặc Public Contracts interface.
+    - Luồng nghiệp vụ bất đồng bộ (Async): Sử dụng **Integration Events** qua **RabbitMQ** với Transactional Outbox Pattern.
 
 ---
 
 ## 2. Yêu cầu môi trường cài đặt (Prerequisites)
 
 Trước khi bắt đầu, đảm bảo máy bạn đã cài đặt:
+
 - **.NET 10 SDK** (phiên bản `10.0.x` - kiểm tra bằng `dotnet --version`).
 - **Docker Desktop** (hoặc Docker Engine + Docker Compose) để chạy database và message broker.
 - **IDE khuyên dùng**:
-  - Visual Studio 2022 (v17.12 trở lên)
-  - VS Code (cài extension *C# Dev Kit*)
-  - JetBrains Rider
+    - Visual Studio 2022 (v17.12 trở lên)
+    - VS Code (cài extension _C# Dev Kit_)
+    - JetBrains Rider
 
 ---
 
@@ -79,18 +83,21 @@ Trước khi bắt đầu, đảm bảo máy bạn đã cài đặt:
 Tất cả các dịch vụ phụ trợ cần thiết đã được cấu hình trong file `docker-compose.yml`.
 
 ### Lệnh khởi động:
+
 ```powershell
 docker compose up -d
 ```
 
 ### Danh sách các dịch vụ & Cổng truy cập:
-| Dịch vụ | Cổng Host | Tài khoản mặc định | Mục đích |
-| :--- | :--- | :--- | :--- |
-| **PostgreSQL 17** | `5432` | User: `skillbridge`<br/>Pass: `skillbridge`<br/>Database: `skillbridge` | Cơ sở dữ liệu chính lưu trữ theo từng schema của module |
-| **RabbitMQ Management** | `5672` (AMQP)<br/>`15672` (Web UI) | User: `skillbridge`<br/>Pass: `skillbridge` | Dashboard quản lý message broker tại `http://localhost:15672` |
-| **Redis 7** | `6379` | Không mật khẩu | Distributed caching & rate limiting |
+
+| Dịch vụ                 | Cổng Host                          | Tài khoản mặc định                                                      | Mục đích                                                      |
+| :---------------------- | :--------------------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------ |
+| **PostgreSQL 17**       | `5432`                             | User: `skillbridge`<br/>Pass: `skillbridge`<br/>Database: `skillbridge` | Cơ sở dữ liệu chính lưu trữ theo từng schema của module       |
+| **RabbitMQ Management** | `5672` (AMQP)<br/>`15672` (Web UI) | User: `skillbridge`<br/>Pass: `skillbridge`                             | Dashboard quản lý message broker tại `http://localhost:15672` |
+| **Redis 7**             | `6379`                             | Không mật khẩu                                                          | Distributed caching & rate limiting                           |
 
 ### Các lệnh quản lý Docker hữu ích:
+
 ```powershell
 # Xem trạng thái các container đang chạy
 docker compose ps
@@ -110,23 +117,23 @@ docker compose down -v
 ## 4. Cấu hình ứng dụng
 
 1. **Biến môi trường**: Tạo file `.env` từ file mẫu:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+    ```powershell
+    Copy-Item .env.example .env
+    ```
 2. **File cấu hình `appsettings.Development.json`**:
    Dự án đã cấu hình sẵn ConnectionStrings trỏ thẳng vào các container Docker cục bộ:
-   ```json
-   {
-     "ConnectionStrings": {
-       "Database": "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge"
-     },
-     "RabbitMq": {
-       "Host": "localhost",
-       "Username": "skillbridge",
-       "Password": "skillbridge"
-     }
-   }
-   ```
+    ```json
+    {
+        "ConnectionStrings": {
+            "Database": "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge"
+        },
+        "RabbitMq": {
+            "Host": "localhost",
+            "Username": "skillbridge",
+            "Password": "skillbridge"
+        }
+    }
+    ```
 
 ---
 
@@ -142,7 +149,7 @@ dotnet restore
 dotnet build
 
 # 3. Khởi chạy dự án Host API
-dotnet run --project src/Bootstrapper/SkillBridge.Api
+dotnet run --project src/Api
 ```
 
 Sau khi chạy thành công, console sẽ hiển thị địa chỉ lắng nghe (mặc định: `http://localhost:5000` hoặc cổng theo `launchSettings.json`).
@@ -159,11 +166,11 @@ Khi ứng dụng chạy ở môi trường `Development`, bạn có thể truy c
 - 📄 **OpenAPI JSON Specification**:  
   👉 `http://localhost:5000/openapi/v1.json`
 - 💓 **Health Checks**:
-  - `http://localhost:5000/health/live`: Kiểm tra tiến trình ứng dụng có đang sống hay không.
-  - `http://localhost:5000/health/ready`: Kiểm tra độ sẵn sàng của hạ tầng (Database, RabbitMQ).
+    - `http://localhost:5000/health/live`: Kiểm tra tiến trình ứng dụng có đang sống hay không.
+    - `http://localhost:5000/health/ready`: Kiểm tra độ sẵn sàng của hạ tầng (Database, RabbitMQ).
 - 🔍 **Probe kiểm tra Module Identity**:
-  - `http://localhost:5000/api/v1/identity/_module`: Kiểm tra trạng thái khả dụng của Module Identity.
-  - `http://localhost:5000/api/v1/identity/users/me`: Test endpoint nghiệp vụ mẫu của User.
+    - `http://localhost:5000/api/v1/identity/_module`: Kiểm tra trạng thái khả dụng của Module Identity.
+    - `http://localhost:5000/api/v1/identity/users/me`: Test endpoint nghiệp vụ mẫu của User.
 - 🆔 **Header `X-Correlation-ID`**:  
   Mọi phản hồi từ server đều tự động đính kèm header `X-Correlation-ID` trong Response Header giúp truy vết log lỗi.
 
@@ -193,13 +200,17 @@ dotnet build SkillBridge.slnx --configuration Release --warnaserror
 Khi được phân công phát triển một Module mới (ví dụ: `Catalog`), hãy tuân thủ đúng các bước sau:
 
 ### Bước 1: Tạo project classlib cho module
+
 ```powershell
 dotnet new classlib -o src/Modules/Catalog/SkillBridge.Modules.Catalog
 ```
+
 Xoá file `Class1.cs` mặc định.
 
 ### Bước 2: Cấu hình file `.csproj` của Module
+
 Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj` và sửa thành:
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -216,12 +227,15 @@ Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalo
 ```
 
 ### Bước 3: Thêm module vào Solution
+
 ```powershell
 dotnet sln SkillBridge.slnx add src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj --solution-folder /src/Modules/
 ```
 
 ### Bước 4: Tạo cấu trúc 4 tầng nội bộ trong Module
+
 Tạo các thư mục:
+
 ```text
 SkillBridge.Modules.Catalog/
 ├── Domain/          <-- Chứa Entities, Value Objects, Domain Events, Domain Errors
@@ -232,7 +246,9 @@ SkillBridge.Modules.Catalog/
 ```
 
 ### Bước 5: Viết file định nghĩa Module `{ModuleName}Module.cs`
+
 Ví dụ tạo file `CatalogModule.cs`:
+
 ```csharp
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -263,31 +279,36 @@ public sealed class CatalogModule : ModuleDefinition
 ```
 
 ### Bước 6: Kết nối Module vào Bootstrapper
+
 1. Thêm reference từ API vào Module mới:
-   ```powershell
-   dotnet add src/Bootstrapper/SkillBridge.Api/SkillBridge.Api.csproj reference src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj
-   ```
-2. Mở file [Program.cs](file:///d:/Projects/skillbridge-api/src/Bootstrapper/SkillBridge.Api/Program.cs), thêm module mới vào danh sách `modules`:
-   ```csharp
-   List<IModule> modules = [
-       new IdentityModule(),
-       new CatalogModule() // <-- Module mới ở đây
-   ];
-   ```
+    ```powershell
+    dotnet add src/Api/SkillBridge.Api.csproj reference src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj
+    ```
+2. Mở file [Program.cs](file:///d:/Projects/skillbridge-api/src/Api/Program.cs), thêm module mới vào danh sách `modules`:
+    ```csharp
+    List<IModule> modules = [
+        new IdentityModule(),
+        new CatalogModule() // <-- Module mới ở đây
+    ];
+    ```
 
 ---
 
 ## 9. Xử lý sự cố thường gặp (Troubleshooting)
 
 ### 9.1. Lỗi khóa file khi biên dịch (MSB3027 / MSB3021)
+
 **Triệu chứng**:
+
 ```text
 error MSB3027: Could not copy "...SkillBridge.BuildingBlocks.dll" to "...". Exceeded retry count of 10. Failed. The file is locked by: "SkillBridge.Api (PID)"
 error MSB3021: Unable to copy file... The process cannot access the file because it is being used by another process.
 ```
+
 **Nguyên nhân**: Ứng dụng `SkillBridge.Api` đang chạy ngầm hoặc đang chạy ở một cửa sổ terminal khác, dẫn đến tiến trình hệ điều hành chiếm quyền ghi file `.dll`.
 
 **Cách xử lý nhanh (PowerShell)**:
+
 ```powershell
 # Cách 1: Tắt toàn bộ tiến trình SkillBridge.Api đang chạy ngầm
 Get-Process -Name "SkillBridge.Api" -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -295,24 +316,27 @@ Get-Process -Name "SkillBridge.Api" -ErrorAction SilentlyContinue | Stop-Process
 # Cách 2: Hoặc dùng taskkill
 taskkill /F /IM SkillBridge.Api.exe
 ```
+
 Sau đó chạy lại lệnh biên dịch `dotnet build`.
 
 ---
 
 ### 9.2. Lỗi không kết nối được PostgreSQL khi chạy ứng dụng
+
 **Triệu chứng**: `Npgsql.NpgsqlException: Connection refused` hoặc `Timeout during MigrateAsync`.
 
 **Cách xử lý**:
+
 1. Đảm bảo Docker Desktop đang chạy.
 2. Kiểm tra container PostgreSQL bằng `docker compose ps`. Nếu chưa chạy, gõ:
-   ```powershell
-   docker compose up -d
-   ```
+    ```powershell
+    docker compose up -d
+    ```
 3. Đảm bảo file `.env` đã có chuỗi kết nối chuẩn:
-   ```env
-   ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge
-   ```
+    ```env
+    ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge
+    ```
 
 ---
 
-*Tài liệu được quản lý bởi DevOps Leader. Mọi thắc mắc hoặc đề xuất cải tiến vui lòng tạo Issue trên Repository.*
+_Tài liệu được quản lý bởi DevOps Leader. Mọi thắc mắc hoặc đề xuất cải tiến vui lòng tạo Issue trên Repository._
