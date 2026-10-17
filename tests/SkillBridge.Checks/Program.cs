@@ -19,6 +19,10 @@ using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Messaging;
+using SkillBridge.Modules.Messaging.Infrastructure;
+using SkillBridge.Modules.Profiles;
+using SkillBridge.Modules.Profiles.Infrastructure;
 
 namespace SkillBridge.Checks;
 
@@ -30,7 +34,9 @@ internal static class Program
         {
             Check(args.Length == 0 || args.SequenceEqual(["--database"]), "Usage: dotnet run --project tests/SkillBridge.Checks [-- --database]");
             await CheckResultsAsync();
+            await IdentityRecoveryChecks.CheckDomainAsync();
             CheckDomain();
+            MentorServiceChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
@@ -157,10 +163,14 @@ internal static class Program
         var services = new ServiceCollection().AddLogging();
         new IdentityModule().AddServices(services, config);
         new CatalogModule().AddServices(services, config);
+        new ProfilesModule().AddServices(services, config);
+        new MessagingModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         CheckModel(scope.ServiceProvider.GetRequiredService<IdentityDbContext>(), "identity");
         CheckModel(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), "catalog");
+        CheckModel(scope.ServiceProvider.GetRequiredService<ProfilesDbContext>(), "profiles");
+        CheckModel(scope.ServiceProvider.GetRequiredService<MessagingDbContext>(), "messaging");
     }
 
     private static void CheckModel(DbContext context, string schema)

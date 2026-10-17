@@ -2,6 +2,15 @@
 
 Module Profiles chịu trách nhiệm quản lý hồ sơ chi tiết của Mentor (kỹ năng, kinh nghiệm, giá/giờ, chứng chỉ) và Mentee (mục tiêu học tập).
 
+## Trạng thái triển khai
+
+- Đã triển khai bốn endpoint self-service `GET`/`PUT` cho `/mentors/me` và `/mentees/me`.
+- Đã triển khai hai endpoint công khai `GET /mentors/{mentorId}` và `GET /mentors`.
+- Đã triển khai quản lý kỹ năng, kinh nghiệm và chứng chỉ của Mentor tại các mục `1.5` đến `1.11`.
+- Trong giai đoạn chưa có consumer sự kiện đăng ký, `PUT /me` có tính idempotent: tạo hồ sơ nếu chưa tồn tại và cập nhật hồ sơ nếu đã có.
+- `GET /me` trả `404` nếu người dùng chưa gửi `PUT /me` lần đầu.
+- Endpoint quản trị xác minh Mentor tại mục `3.1` vẫn là contract dự kiến, chưa được map.
+
 ## Thông tin chung
 
 - **Base URL**: `/api/v1/profiles`
@@ -119,6 +128,7 @@ Các response lỗi sử dụng định dạng Problem Details (RFC 7807):
 - `401 Unauthorized`: Chưa xác thực.
 
 ### 1.3 Xem profile Mentor (Public)
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/{mentorId}`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
@@ -132,6 +142,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy Mentor.
 
 ### 1.4 Tìm kiếm/lọc danh sách Mentors (Public, phân trang)
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors`
 - **Method**: `GET`
 - **Quyền truy cập**: `Anonymous`, `Authenticated`
@@ -140,7 +151,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 **Query Parameters**
 | Tên tham số | Kiểu dữ liệu | Mô tả |
 |---|---|---|
-| `searchTerm` | string | Tìm theo tên, headline, bio |
+| `searchTerm` | string | Hiện tìm theo headline và bio; Profiles không đọc trực tiếp tên từ Identity |
 | `skillId` | UUID | Lọc theo ID kỹ năng |
 | `minRate` | decimal | Giá tối thiểu |
 | `maxRate` | decimal | Giá tối đa |
@@ -174,6 +185,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 ```
 
 ### 1.5 Thêm kỹ năng
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/skills`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`
@@ -194,14 +206,17 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 
 **Responses**
 - `201 Created`: Thêm thành công.
-- `400 Bad Request`: Kỹ năng đã tồn tại hoặc data không hợp lệ.
+- `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `404 Not Found`: Kỹ năng không tồn tại hoặc không hoạt động trong Catalog.
+- `409 Conflict`: Kỹ năng đã tồn tại trong hồ sơ Mentor.
 
 ### 1.6 Xóa kỹ năng
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/skills/{skillId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`
-- **Mô tả**: Bỏ một kỹ năng khỏi hồ sơ. (Lưu ý: skillId ở đây là ID của bản ghi `mentor_skills` hoặc ID kỹ năng từ Catalog, tuỳ thiết kế hệ thống).
+- **Mô tả**: Bỏ một kỹ năng khỏi hồ sơ; `skillId` là ID kỹ năng từ Catalog.
 
 **Responses**
 - `204 No Content`: Xóa thành công.
@@ -209,6 +224,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Kỹ năng không tồn tại trong hồ sơ của Mentor này.
 
 ### 1.7 Thêm kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`
@@ -230,8 +246,10 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `201 Created`: Thêm thành công.
 - `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `409 Conflict`: Mentor chưa tạo hồ sơ.
 
 ### 1.8 Sửa kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences/{experienceId}`
 - **Method**: `PUT`
 - **Quyền truy cập**: `Mentor`
@@ -247,6 +265,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy kinh nghiệm.
 
 ### 1.9 Xóa kinh nghiệm
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/experiences/{experienceId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`
@@ -258,6 +277,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `404 Not Found`: Không tìm thấy.
 
 ### 1.10 Thêm chứng chỉ
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/certifications`
 - **Method**: `POST`
 - **Quyền truy cập**: `Mentor`
@@ -279,8 +299,10 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 - `201 Created`: Thêm thành công.
 - `400 Bad Request`: Dữ liệu không hợp lệ.
 - `401 Unauthorized`: Chưa xác thực.
+- `409 Conflict`: Mentor chưa tạo hồ sơ.
 
 ### 1.11 Xóa chứng chỉ
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/me/certifications/{certificationId}`
 - **Method**: `DELETE`
 - **Quyền truy cập**: `Mentor`

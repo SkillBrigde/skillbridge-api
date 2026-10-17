@@ -90,6 +90,42 @@ partial class IdentityDbContextModelSnapshot : ModelSnapshot
                 b.ToTable("external_logins", "identity");
             });
 
+        modelBuilder.Entity("SkillBridge.Modules.Identity.Domain.PasswordResetToken", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uuid");
+
+                b.Property<DateTimeOffset?>("ConsumedAtUtc")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<DateTimeOffset>("CreatedAtUtc")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<DateTimeOffset>("ExpiresAtUtc")
+                    .HasColumnType("timestamp with time zone");
+
+                b.Property<string>("SecurityStamp")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)");
+
+                b.Property<string>("TokenHash")
+                    .IsRequired()
+                    .HasMaxLength(64)
+                    .HasColumnType("character varying(64)");
+
+                b.Property<Guid>("UserId")
+                    .HasColumnType("uuid");
+
+                b.HasKey("Id");
+
+                b.HasIndex("UserId")
+                    .IsUnique();
+
+                b.ToTable("password_reset_tokens", "identity");
+            });
+
         modelBuilder.Entity("SkillBridge.Modules.Identity.Domain.RefreshToken", b =>
             {
                 b.Property<Guid>("Id")
@@ -279,6 +315,15 @@ partial class IdentityDbContextModelSnapshot : ModelSnapshot
             });
 
         modelBuilder.Entity("SkillBridge.Modules.Identity.Domain.ExternalLogin", b =>
+            {
+                b.HasOne("SkillBridge.Modules.Identity.Domain.User", null)
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("SkillBridge.Modules.Identity.Domain.PasswordResetToken", b =>
             {
                 b.HasOne("SkillBridge.Modules.Identity.Domain.User", null)
                     .WithMany()

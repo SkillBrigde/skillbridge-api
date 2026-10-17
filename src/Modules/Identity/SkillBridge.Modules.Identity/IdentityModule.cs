@@ -3,9 +3,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.Modules.Identity.Application;
 using SkillBridge.Modules.Identity.Endpoints;
+using SkillBridge.Modules.Identity.Infrastructure;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
 
 namespace SkillBridge.Modules.Identity;
@@ -17,6 +20,8 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton<DevelopmentPasswordResetEmailSender>();
+        services.TryAddSingleton<IPasswordResetEmailSender>(provider => provider.GetRequiredService<DevelopmentPasswordResetEmailSender>());
         var connectionString = configuration.GetConnectionString("Database")
             ?? "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only";
 

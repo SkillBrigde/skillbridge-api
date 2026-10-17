@@ -26,6 +26,7 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Cấu hình bối cảnh bảo mật & người dùng hiện tại (ICurrentUser)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddMessagingComposition();
 
 // 2. Cấu hình xử lý lỗi tập trung (ProblemDetails & Global Exception Handler)
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
@@ -105,6 +106,10 @@ foreach (var module in modules)
 {
     module.AddServices(builder.Services, builder.Configuration);
 }
+
+builder.Services.AddCatalogComposition();
+builder.Services.AddProfilesComposition();
+builder.Services.AddSchedulingComposition();
 
 var app = builder.Build();
 
