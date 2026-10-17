@@ -9,7 +9,7 @@ Module Profiles chịu trách nhiệm quản lý hồ sơ chi tiết của Mento
 - Đã triển khai quản lý kỹ năng, kinh nghiệm và chứng chỉ của Mentor tại các mục `1.5` đến `1.11`.
 - Trong giai đoạn chưa có consumer sự kiện đăng ký, `PUT /me` có tính idempotent: tạo hồ sơ nếu chưa tồn tại và cập nhật hồ sơ nếu đã có.
 - `GET /me` trả `404` nếu người dùng chưa gửi `PUT /me` lần đầu.
-- Endpoint quản trị xác minh Mentor tại mục `3.1` vẫn là contract dự kiến, chưa được map.
+- Đã triển khai endpoint quản trị xác minh Mentor tại mục `3.1`.
 
 ## Thông tin chung
 
@@ -375,6 +375,7 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 ## 3. Admin
 
 ### 3.1 Duyệt/từ chối Mentor
+- **Trạng thái**: `IMPLEMENTED`
 - **URL**: `/api/v1/profiles/mentors/{mentorId}/verification`
 - **Method**: `PUT`
 - **Quyền truy cập**: `Admin`
@@ -389,6 +390,9 @@ Cấu trúc tương tự như endpoint `1.1` (có thể ẩn một số thông t
 
 **Quy tắc nghiệp vụ:**
 - `verificationStatus`: Bắt buộc thuộc "Unverified", "Pending", hoặc "Verified".
+- Gửi lại trạng thái hiện tại là thao tác idempotent.
+- Cho phép `Unverified → Pending/Verified`, `Pending → Unverified/Verified` và `Verified → Unverified`.
+- Không cho chuyển ngược `Verified → Pending`.
 
 **Responses**
 - `204 No Content`: Cập nhật thành công.

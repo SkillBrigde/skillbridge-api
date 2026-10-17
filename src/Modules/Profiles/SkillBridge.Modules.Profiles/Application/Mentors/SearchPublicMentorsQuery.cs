@@ -23,7 +23,6 @@ public sealed record SearchPublicMentorsQuery(
 
 public sealed class SearchPublicMentorsQueryValidator : AbstractValidator<SearchPublicMentorsQuery>
 {
-    private static readonly string[] VerificationStatuses = ["Unverified", "Pending", "Verified"];
     private static readonly string[] SortFields = ["rating", "rate", "reviews"];
 
     public SearchPublicMentorsQueryValidator()
@@ -43,7 +42,7 @@ public sealed class SearchPublicMentorsQueryValidator : AbstractValidator<Search
             .WithName("maxRate")
             .WithMessage("maxRate phải lớn hơn hoặc bằng minRate.");
         RuleFor(query => query.VerificationStatus)
-            .Must(value => value is null || VerificationStatuses.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase))
+            .Must(value => value is null || MentorVerificationStatuses.IsSupported(value))
             .WithMessage("verificationStatus chỉ có thể là Unverified, Pending hoặc Verified.");
         RuleFor(query => query.MinRating)
             .InclusiveBetween(0, 5)
@@ -101,8 +100,8 @@ public sealed class SearchPublicMentorsQueryHandler(ProfilesDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(request.VerificationStatus))
         {
-            var status = request.VerificationStatus.Trim().ToLowerInvariant();
-            query = query.Where(profile => profile.VerificationStatus.ToLower() == status);
+            var status = MentorVerificationStatuses.Normalize(request.VerificationStatus)!;
+            query = query.Where(profile => profile.VerificationStatus == status);
         }
 
         if (request.MinRating.HasValue)
