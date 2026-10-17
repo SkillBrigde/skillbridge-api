@@ -50,10 +50,12 @@ graph TD
 1. **Contracts**: `IModule` và `ModuleDefinition` đóng gói trọn vẹn vòng đời và probe endpoint của từng module.
 2. **CQRS**: `ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler` tích hợp sẵn Railway `Result<T>`.
 3. **Behaviors**: `ValidationBehavior` (tự động chạy FluentValidation) và `LoggingBehavior` (đo lường hiệu năng).
-4. **Security Context**: `ICurrentUser` bóc tách danh tính (UserId, Email, Roles) từ JWT Claims.
+4. **Security**: `BuildingBlocks.Security` chứa `JwtSettings`, các hợp đồng và triển khai cấp JWT/hash mật khẩu, cùng `ICurrentUser`. `Api/Security` cấu hình JWT Bearer, phân quyền và triển khai `CurrentUser` đọc danh tính từ HTTP.
 5. **Auditing & Interceptors**: `AuditInterceptor` (tự động gán thời gian/người tạo/sửa, chuyển xóa mềm) và `DispatchDomainEventsInterceptor` (gom và phát domain events).
 6. **Events & Outbox**: `IIntegrationEvent`, `IEventBus`, `InMemoryEventBus`, `OutboxMessage` đảm bảo liên module không phụ thuộc trực tiếp.
 7. **Pagination**: `PaginationParams` và `PagedResult<T>` thống nhất định dạng JSON phân trang cho toàn hệ thống.
+
+Trong `Program.cs`, đăng ký phần kỹ thuật dùng chung bằng `builder.Services.AddSecurityServices(builder.Configuration)`, sau đó đăng ký xác thực HTTP bằng `builder.Services.AddApiAuthentication()`. Phần API đăng ký `IHttpContextAccessor` và `ICurrentUser` với triển khai tại `src/Api/Security/CurrentUser.cs`.
 
 ### 3 Nguyên tắc bất biến (Golden Rules):
 
@@ -116,24 +118,40 @@ docker compose down -v
 
 ## 4. Cấu hình ứng dụng
 
-1. **Biến môi trường**: Tạo file `.env` từ file mẫu:
-    ```powershell
-    Copy-Item .env.example .env
-    ```
-2. **File cấu hình `appsettings.Development.json`**:
-   Dự án đã cấu hình sẵn ConnectionStrings trỏ thẳng vào các container Docker cục bộ:
-    ```json
-    {
-        "ConnectionStrings": {
-            "Database": "Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge"
-        },
-        "RabbitMq": {
-            "Host": "localhost",
-            "Username": "skillbridge",
-            "Password": "skillbridge"
-        }
-    }
-    ```
+Credential JWT, database và RabbitMQ được nạp từ `.env` hoặc biến môi trường triển khai. `appsettings*.json` không chứa credential và Identity không còn chuỗi kết nối dự phòng. Cần điền `ConnectionStrings__Database`, `RabbitMq__Username`, `RabbitMq__Password` theo hạ tầng đang dùng; các giá trị local hiện có đã được giữ nguyên trong `.env` của workspace này.
+
+`Jwt__SecretKey` trong `.env.example` cố ý để trống. Key thật chỉ đặt trong `.env` được Git/Docker bỏ qua hoặc biến môi trường triển khai; dùng bộ sinh ngẫu nhiên mật mã, tối thiểu 32 byte UTF-8. API dừng khởi động nếu thiếu key hoặc key ngắn hơn mức này.
+
+Workspace local được chuẩn hóa trong lần rà soát ngày 2026-10-17 đã có `.env` với key ngẫu nhiên mới. **Giữ nguyên file đó khi chạy lại**. Với checkout mới chưa có `.env`, chạy tại thư mục gốc để sao chép mẫu, sinh 64 byte ngẫu nhiên và ghi đúng một dòng key mà không in giá trị ra màn hình:
+
+```powershell
+if (Test-Path -LiteralPath .env) {
+    throw '.env already exists; keep its configured values.'
+}
+
+Copy-Item -LiteralPath .env.example -Destination .env
+$jwtBytes = [byte[]]::new(64)
+$jwtRandom = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+try {
+    $jwtRandom.GetBytes($jwtBytes)
+}
+finally {
+    $jwtRandom.Dispose()
+}
+$jwtValue = [Convert]::ToBase64String($jwtBytes)
+$envLines = @(Get-Content -LiteralPath .env | Where-Object {
+    $_ -notmatch '^\s*Jwt__SecretKey\s*='
+})
+$envLines += "Jwt__SecretKey=$jwtValue"
+[System.IO.File]::WriteAllLines(
+    (Join-Path (Get-Location).Path '.env'),
+    $envLines,
+    [System.Text.UTF8Encoding]::new($false)
+)
+Remove-Variable jwtBytes, jwtRandom, jwtValue, envLines
+```
+
+Kiểm tra thông tin kết nối DB/broker trong file mới theo hạ tầng local. Mỗi môi trường triển khai phải cấp secret riêng qua biến môi trường; không dùng chung key local. Biến môi trường của tiến trình được ưu tiên hơn `.env`. Sau khi đổi key, khởi động lại API; access token ký bằng key cũ sẽ không còn hợp lệ. Việc đổi key không tự thu hồi refresh token hoặc đổi mật khẩu DB/broker. Xem [báo cáo bảo mật](security-review.md) về các phần còn cần xử lý.
 
 ---
 
@@ -179,7 +197,7 @@ Khi ứng dụng chạy ở môi trường `Development`, bạn có thể truy c
 ## 7. Quy chuẩn Code & Quy trình CI trước khi tạo Pull Request
 
 Dự án áp dụng quy trình kiểm tra chất lượng code tự động trên GitHub Actions.  
-Trước khi `git push` hoặc tạo PR, bạn **bắt buộc phải chạy 2 lệnh sau trên máy của mình**:
+Trước khi `git push` hoặc tạo PR, bạn **bắt buộc phải chạy 3 lệnh sau trên máy của mình**:
 
 ```powershell
 # 1. Tự động kiểm tra định dạng code theo chuẩn .editorconfig
@@ -187,10 +205,15 @@ dotnet format SkillBridge.slnx --verify-no-changes
 
 # 2. Biên dịch chế độ Release và chặn toàn bộ Warning (Warn as Error)
 dotnet build SkillBridge.slnx --configuration Release --warnaserror
+
+# 3. Chạy bộ kiểm thử xUnit sau khi build Release
+dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
 ```
 
+Project kiểm thử nằm tại `tests/SkillBridge.Tests/SkillBridge.Tests.csproj`. CI cũng chạy bộ kiểm thử này sau bước build.
+
 > [!WARNING]
-> Nếu một trong hai lệnh trên báo lỗi đỏ, GitHub Actions CI sẽ tự động từ chối (Reject) Pull Request của bạn.  
+> Ba lệnh này cũng được chạy trong GitHub Actions; hãy xử lý lỗi trước khi tạo Pull Request.
 > Để tự động sửa định dạng code bị lệch, hãy chạy: `dotnet format SkillBridge.slnx`.
 
 ---

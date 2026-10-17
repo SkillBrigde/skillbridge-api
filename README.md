@@ -28,6 +28,7 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 | 🗄️ **Thiết Kế Cơ Sở Dữ Liệu Chi Tiết**          | [docs/database-design.md](docs/database-design.md)                                                                        | Sơ đồ ERD, 7 Bounded Contexts / 24 bảng chuyên trách, kiểu dữ liệu, index.                                                          |
 | ⚙️ **Chi Tiết Luồng Thực Thi Mã Nguồn**         | [docs/code-runtime-flow.md](docs/code-runtime-flow.md)                                                                    | Giải thích file-by-file vòng đời khởi động và luồng xử lý một HTTP Request.                                                         |
 | 🤖 **Bộ Prompt / Skill Cho AI Coding**          | [docs/chatgpt-skill-prompt.md](docs/chatgpt-skill-prompt.md)                                                              | Bộ chỉ dẫn để nạp vào AI sinh code chuẩn DDD không vi phạm module.                                                                  |
+| **Rà soát bảo mật 2026-10-17**                 | [docs/security-review.md](docs/security-review.md)                                                                      | Các chỉnh sửa quản lý secret và vấn đề phân quyền, phiên đăng nhập còn cần xử lý. |
 | 📜 **Quyết Định Kiến Trúc (ADRs)**              | [docs/adr/](docs/adr/)                                                                                                    | Các quyết định kiến trúc đã được chấp thuận (Modular Monolith, Async Events).                                                       |
 
 ---
@@ -55,6 +56,10 @@ docker compose up -d
 
 ### 3. Chạy ứng dụng API
 
+API cần `Jwt__SecretKey`, `ConnectionStrings__Database` và thông tin RabbitMQ từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Workspace local hiện tại đã có `.env` được điền key mới và giữ thông tin kết nối local. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống.
+
+Key JWT phải được sinh ngẫu nhiên bằng bộ sinh mật mã, tối thiểu 32 byte UTF-8; không đưa key thật vào Git hoặc `appsettings`. Mỗi môi trường triển khai phải cấp secret riêng. Đổi key cần khởi động lại API và làm access token ký bằng key cũ hết hiệu lực.
+
 ```powershell
 dotnet restore
 dotnet build
@@ -72,7 +77,7 @@ dotnet run --project src/Api
 
 ## 🛡️ Quy chuẩn Code & Kiểm tra CI trước khi tạo Pull Request
 
-Trước khi tạo Pull Request, bạn cần đảm bảo mã nguồn vượt qua 2 lệnh kiểm tra của CI:
+Trước khi tạo Pull Request, bạn cần đảm bảo mã nguồn vượt qua 3 lệnh kiểm tra của CI:
 
 ```powershell
 # 1. Kiểm tra định dạng code theo chuẩn .editorconfig
@@ -80,6 +85,9 @@ dotnet format SkillBridge.slnx --verify-no-changes
 
 # 2. Biên dịch chế độ Release và chặn toàn bộ Warning
 dotnet build SkillBridge.slnx --configuration Release --warnaserror
+
+# 3. Chạy bộ kiểm thử xUnit trong tests/SkillBridge.Tests
+dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
 ```
 
 ---

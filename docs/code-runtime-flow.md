@@ -71,11 +71,7 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
 - **Dòng code**:
 
     ```csharp
-    // 1. Bối cảnh người dùng hiện tại (ICurrentUser)
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<ICurrentUser, CurrentUser>();
-
-    // 2. Toàn bộ 10 Bounded Context Modules
+    // 1. Toàn bộ 10 Bounded Context Modules
     List<IModule> modules = [
         new IdentityModule(),
         new ProfilesModule(),
@@ -89,9 +85,13 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
         new RecommendationsModule()
     ];
 
-    // 3. Đăng ký tập trung Enterprise BuildingBlocks
+    // 2. Đăng ký tập trung Enterprise BuildingBlocks
     var moduleAssemblies = modules.Select(m => m.GetType().Assembly).Distinct().ToArray();
     builder.Services.AddBuildingBlocks(builder.Configuration, moduleAssemblies);
+
+    // 3. Dịch vụ bảo mật dùng chung và cấu hình xác thực HTTP
+    builder.Services.AddSecurityServices(builder.Configuration);
+    builder.Services.AddApiAuthentication();
     ```
 
 - **Hành động**:
@@ -101,6 +101,8 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
         - Kích hoạt `LoggingBehavior` (đo hiệu năng) và `ValidationBehavior` (tự động chạy FluentValidation trước khi vào Handler).
         - Đăng ký `IEventBus` -> `InMemoryEventBus` cho giao tiếp phi đồng bộ liên module.
         - Đăng ký `AuditInterceptor` và `DispatchDomainEventsInterceptor` cho EF Core.
+    - `AddSecurityServices`: Đăng ký `JwtSettings`, `IPasswordHasher`/`PasswordHasher` và `IJwtTokenGenerator`/`JwtTokenGenerator` trong `BuildingBlocks.Security`.
+    - `AddApiAuthentication`: Cấu hình JWT Bearer, phân quyền, `IHttpContextAccessor` và `ICurrentUser`/`CurrentUser` trong API. Các file triển khai nằm tại [AuthenticationExtensions.cs](../src/Api/Security/AuthenticationExtensions.cs) và [CurrentUser.cs](../src/Api/Security/CurrentUser.cs).
 
 ### Bước 4: Đăng ký Dependency Injection cho từng Module
 
@@ -120,7 +122,9 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
     1. `app.UseExceptionHandler()`: Lớp bọc ngoài cùng. Bắt mọi exception (kể cả `ValidationException` từ FluentValidation) và chuyển cho `GlobalExceptionHandler`.
     2. `app.UseMiddleware<CorrelationIdMiddleware>()`: Gán mã định danh duy nhất cho request (`X-Correlation-ID`).
     3. `app.UseCors("Default")`: Kiểm tra chính sách CORS.
-    4. Nếu ở môi trường `Development`:
+    4. `app.UseAuthentication()`: Xác thực JWT và thiết lập danh tính người dùng.
+    5. `app.UseAuthorization()`: Áp dụng yêu cầu phân quyền của endpoint.
+    6. Nếu ở môi trường `Development`:
         - Bật OpenAPI: `app.MapOpenApi()`.
         - Kích hoạt giao diện UI tài liệu: `app.MapScalarApiReference()`.
         - **Khởi tạo Module độc lập**: Lặp qua các module và gọi `await module.InitializeAsync(app.Services)` để tự kiểm tra/migrate DB.
@@ -218,7 +222,8 @@ Giả sử Client gửi một request:
 | :------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`Program.cs`**                                                     | `Bootstrapper`   | Điểm khởi đầu ứng dụng, nạp `.env`, cấu hình DI, middleware pipeline, kích hoạt 10 modules.                                                                             |
 | **`Common/DotEnv.cs`**                                               | `Bootstrapper`   | Bộ quét và nạp file `.env` cục bộ vào biến môi trường hệ thống.                                                                                                         |
-| **`Common/CurrentUser.cs`**                                          | `Bootstrapper`   | Triển khai `ICurrentUser` lấy UserId, Email, Role từ `IHttpContextAccessor`.                                                                                            |
+| **[`Security/CurrentUser.cs`](../src/Api/Security/CurrentUser.cs)**    | `Api`            | Triển khai `ICurrentUser` lấy UserId, Email, Role từ `IHttpContextAccessor`.                                                                                            |
+| **[`Security/AuthenticationExtensions.cs`](../src/Api/Security/AuthenticationExtensions.cs)** | `Api` | `AddApiAuthentication` cấu hình JWT Bearer, phân quyền và đăng ký bối cảnh người dùng HTTP. |
 | **`Middleware/CorrelationIdMiddleware.cs`**                          | `Bootstrapper`   | Tạo và truyền mã `X-Correlation-ID` xuyên suốt request/response để truy vết log.                                                                                        |
 | **`Middleware/GlobalExceptionHandler.cs`**                           | `Bootstrapper`   | Bắt ngoại lệ tập trung, xử lý `ValidationException` và lỗi 500 chuẩn RFC 7807 `ProblemDetails`.                                                                         |
 | **`Contracts/IModule.cs` & `ModuleDefinition.cs`**                   | `BuildingBlocks` | Hợp đồng vòng đời module (`AddServices`, `MapEndpoints`, `InitializeAsync`) và endpoint probe `/_module`.                                                               |
@@ -226,6 +231,7 @@ Giả sử Client gửi một request:
 | **`Behaviors/ValidationBehavior.cs`**                                | `BuildingBlocks` | MediatR pipeline tự động chạy FluentValidation trước khi gọi Handler.                                                                                                   |
 | **`Behaviors/LoggingBehavior.cs`**                                   | `BuildingBlocks` | MediatR pipeline đo thời gian thực thi, cảnh báo request chạy chậm (> 500ms).                                                                                           |
 | **`Security/ICurrentUser.cs`**                                       | `BuildingBlocks` | Hợp đồng lấy bối cảnh người dùng đăng nhập không phụ thuộc `HttpContext`.                                                                                               |
+| **`Security/SecurityExtensions.cs`**                                | `BuildingBlocks` | `AddSecurityServices` đăng ký JWT settings, dịch vụ cấp token và hash mật khẩu dùng chung. |
 | **`Domain/Entity.cs` & `AggregateRoot.cs`**                          | `BuildingBlocks` | Lớp cơ sở DDD: so sánh định danh Id và thu thập sự kiện miền `DomainEvents`.                                                                                            |
 | **`Domain/AuditableEntity.cs`**                                      | `BuildingBlocks` | Base Entity hỗ trợ audit (`CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`) và xóa mềm.                                                                               |
 | **`Infrastructure/Interceptors/AuditInterceptor.cs`**                | `BuildingBlocks` | EF Core interceptor tự động điền thời gian UTC và UserId khi `SaveChanges`.                                                                                             |

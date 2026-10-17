@@ -15,6 +15,8 @@ When generating or refactoring code for this repository, you **MUST STRICTLY OBE
 2. **NO Business Logic in BuildingBlocks**:
     - `BuildingBlocks` is the Shared Kernel containing ONLY technical primitives (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result`, `IModule`).
     - NEVER place business entities (like `User`, `Course`, `Booking`) into `BuildingBlocks`.
+    - Shared security contracts/settings and technical implementations (`ICurrentUser`, `JwtSettings`, password hashing and JWT generation) stay in `BuildingBlocks.Security`, registered by `AddSecurityServices(configuration)`.
+    - HTTP JWT Bearer validation, authorization, `IHttpContextAccessor` and the scoped `CurrentUser` implementation belong to `Api/Security`, registered by `AddApiAuthentication()`. Keep HTTP authentication setup out of BuildingBlocks.
 3. **NO Cross-Module Database Foreign Keys**:
     - Each module owns a dedicated PostgreSQL schema (`identity`, `profiles`, `catalog`, `booking`, etc.).
     - Cross-module relationships MUST only store unconstrained IDs (e.g. `public Guid MentorId { get; private set; }`). NEVER configure an EF Core Foreign Key pointing to a table in another module's schema.
