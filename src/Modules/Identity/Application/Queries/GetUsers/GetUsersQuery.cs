@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.CQRS;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Identity.Application.DTOs;
+using SkillBridge.Modules.Identity.Application.DTOs.Responses;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
 
 namespace SkillBridge.Modules.Identity.Application.Queries.GetUsers;
@@ -13,9 +13,9 @@ public sealed record GetUsersQuery(
     string? SearchTerm = null,
     string? Role = null,
     bool? IsActive = null
-) : IQuery<PagedResult<UserDto>>;
+) : IQuery<PagedResult<UserResponse>>;
 
-public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedResult<UserDto>>
+public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedResult<UserResponse>>
 {
     private readonly IdentityDbContext _dbContext;
 
@@ -24,7 +24,7 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
         _dbContext = dbContext;
     }
 
-    public async Task<Result<PagedResult<UserDto>>> Handle(GetUsersQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<UserResponse>>> Handle(GetUsersQuery request, CancellationToken cancellationToken)
     {
         var query = _dbContext.Users.AsNoTracking();
 
@@ -53,7 +53,7 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
             .OrderByDescending(u => u.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(u => new UserDto(
+            .Select(u => new UserResponse(
                 u.Id,
                 u.Email,
                 u.FullName,
@@ -66,8 +66,8 @@ public sealed class GetUsersQueryHandler : IQueryHandler<GetUsersQuery, PagedRes
             ))
             .ToListAsync(cancellationToken);
 
-        var result = PagedResult<UserDto>.Create(items, page, pageSize, totalCount);
+        var result = PagedResult<UserResponse>.Create(items, page, pageSize, totalCount);
 
-        return Result<PagedResult<UserDto>>.Success(result);
+        return Result<PagedResult<UserResponse>>.Success(result);
     }
 }

@@ -1,6 +1,6 @@
-namespace SkillBridge.Modules.Identity.Application.DTOs;
+namespace SkillBridge.Modules.Identity.Application.DTOs.Responses;
 
-public sealed record UserDto(
+public sealed record UserResponse(
     Guid Id,
     string Email,
     string FullName,

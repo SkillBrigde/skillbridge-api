@@ -1,14 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.CQRS;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Identity.Application.DTOs;
+using SkillBridge.Modules.Identity.Application.DTOs.Responses;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
 
 namespace SkillBridge.Modules.Identity.Application.Queries.GetCurrentUser;
 
-public sealed record GetCurrentUserQuery(Guid UserId) : IQuery<UserDto>;
+public sealed record GetCurrentUserQuery(Guid UserId) : IQuery<UserResponse>;
 
-public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQuery, UserDto>
+public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQuery, UserResponse>
 {
     private readonly IdentityDbContext _dbContext;
 
@@ -17,7 +17,7 @@ public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQue
         _dbContext = dbContext;
     }
 
-    public async Task<Result<UserDto>> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
+    public async Task<Result<UserResponse>> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users
             .AsNoTracking()
@@ -25,12 +25,12 @@ public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQue
 
         if (user == null)
         {
-            return Result<UserDto>.Failure(Error.NotFound(
+            return Result<UserResponse>.Failure(Error.NotFound(
                 "Identity.UserNotFound",
                 "Không tìm thấy thông tin tài khoản người dùng."));
         }
 
-        var dto = new UserDto(
+        var dto = new UserResponse(
             Id: user.Id,
             Email: user.Email,
             FullName: user.FullName,
@@ -42,6 +42,6 @@ public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQue
             CreatedAtUtc: user.CreatedAtUtc
         );
 
-        return Result<UserDto>.Success(dto);
+        return Result<UserResponse>.Success(dto);
     }
 }

@@ -240,10 +240,19 @@ Tạo các thư mục:
 src/Modules/Catalog/
 ├── Domain/          <-- Chứa Entities, Value Objects, Domain Events, Domain Errors
 ├── Application/     <-- Chứa CQRS Commands, Queries, Validators, DTOs
+│   ├── Commands/    <-- Mỗi use case thay đổi dữ liệu có thư mục riêng
+│   ├── Queries/     <-- Mỗi use case truy vấn có thư mục riêng
+│   └── DTOs/
+│       ├── Requests/  <-- Dữ liệu HTTP đầu vào: body hoặc query parameters
+│       └── Responses/ <-- Dữ liệu API trả về
 ├── Infrastructure/  <-- Chứa CatalogDbContext (Schema: "catalog"), Repositories
 ├── Endpoints/       <-- Chứa Minimal API endpoint mappings
 └── CatalogModule.cs <-- Định nghĩa Module kế thừa ModuleDefinition
 ```
+
+Endpoint nhận DTO `*Request`, ánh xạ sang Command/Query rồi gửi qua MediatR; không bind trực tiếp Command/Query từ HTTP. Command/Query biểu diễn yêu cầu xử lý nội bộ, còn DTO `*Response` biểu diễn dữ liệu trả về API. Validator và handler của use case tiếp tục nằm cùng nhóm Command/Query tương ứng.
+
+Ví dụ trong Identity: `LoginRequest` → `LoginCommand` → `AuthResponse`; truy vấn danh sách dùng `GetUsersRequest` → `GetUsersQuery` → `UserResponse` trong kết quả phân trang. Khi ánh xạ, giữ nguyên tên trường JSON, query parameters (`page`, `pageSize`, `search`, `role`, `isActive`) và giá trị mặc định. IP đăng nhập thực tế lấy từ `HttpContext`; trường `IpAddress` cũ được giữ trong request để tương thích nhưng giá trị client gửi không được sử dụng.
 
 ### Bước 5: Viết file định nghĩa Module `{ModuleName}Module.cs`
 

@@ -2,9 +2,12 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Identity.Application.Commands.UpdateUserStatus;
+using SkillBridge.Modules.Identity.Application.DTOs.Requests;
+using SkillBridge.Modules.Identity.Application.DTOs.Responses;
 using SkillBridge.Modules.Identity.Application.Queries.GetCurrentUser;
 using SkillBridge.Modules.Identity.Application.Queries.GetUsers;
 
@@ -28,29 +31,27 @@ public static class UsersEndpoints
             return result.ToHttpResult();
         })
         .RequireAuthorization()
+        .Produces<UserResponse>()
         .WithName("GetCurrentUser")
         .WithSummary("Lấy thông tin tài khoản người dùng đang đăng nhập");
 
         group.MapGet("/", async (
-            int? page,
-            int? pageSize,
-            string? search,
-            string? role,
-            bool? isActive,
+            [AsParameters] GetUsersRequest request,
             ISender sender) =>
         {
             var query = new GetUsersQuery(
-                PageNumber: page ?? 1,
-                PageSize: pageSize ?? 20,
-                SearchTerm: search,
-                Role: role,
-                IsActive: isActive
+                PageNumber: request.Page ?? 1,
+                PageSize: request.PageSize ?? 20,
+                SearchTerm: request.Search,
+                Role: request.Role,
+                IsActive: request.IsActive
             );
 
             var result = await sender.Send(query);
             return result.ToHttpResult();
         })
         .RequireAuthorization()
+        .Produces<PagedResult<UserResponse>>()
         .WithName("GetUsers")
         .WithSummary("Lấy danh sách người dùng toàn hệ thống (Dành cho Quản trị viên)");
 
@@ -68,5 +69,3 @@ public static class UsersEndpoints
         .WithSummary("Khóa hoặc mở khóa tài khoản người dùng (Dành cho Quản trị viên)");
     }
 }
-
-public sealed record UpdateUserStatusRequest(bool IsActive);

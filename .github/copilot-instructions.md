@@ -34,6 +34,11 @@ Inside any module `src/Modules/{ModuleName}/`:
 ```text
 ├── Domain/                         # Entities, Value Objects, Domain Events, Domain Errors
 ├── Application/                    # CQRS Commands/Queries, Validators (FluentValidation), DTOs
+│   ├── Commands/{UseCase}/         # Internal write operations, validators and handlers
+│   ├── Queries/{UseCase}/          # Internal read operations and handlers
+│   └── DTOs/
+│       ├── Requests/               # HTTP body/query inputs, named *Request
+│       └── Responses/              # API outputs, named *Response
 ├── Infrastructure/                 # Persistence (DbContext with schema), Configurations, Repositories
 │   ├── Data/
 │   │   ├── {Name}DbContext.cs
@@ -42,6 +47,8 @@ Inside any module `src/Modules/{ModuleName}/`:
 ├── Endpoints/                      # Minimal API endpoint mappings
 └── {Name}Module.cs                 # Inherits ModuleDefinition, registers DI & maps routes
 ```
+
+Endpoints MUST bind HTTP inputs to Request DTOs and map them to internal Commands/Queries before calling MediatR. Do NOT bind Commands/Queries directly from HTTP. Keep request/response JSON fields, query parameter names and defaults unchanged when refactoring. Server-derived values such as the login IP address MUST come from `HttpContext`, not a client-supplied Request property.
 
 ---
 

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.CQRS;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.DTOs;
+using SkillBridge.Modules.Identity.Application.DTOs.Responses;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Data;
 

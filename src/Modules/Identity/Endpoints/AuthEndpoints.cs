@@ -9,6 +9,8 @@ using SkillBridge.Modules.Identity.Application.Commands.Login;
 using SkillBridge.Modules.Identity.Application.Commands.Logout;
 using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
 using SkillBridge.Modules.Identity.Application.Commands.Register;
+using SkillBridge.Modules.Identity.Application.DTOs.Requests;
+using SkillBridge.Modules.Identity.Application.DTOs.Responses;
 
 namespace SkillBridge.Modules.Identity.Endpoints;
 
@@ -19,18 +21,26 @@ public static class AuthEndpoints
         var group = endpoints.MapGroup("/api/v1/identity/auth")
             .WithTags("Identity Auth");
 
-        group.MapPost("/register", async (RegisterUserCommand command, ISender sender) =>
+        group.MapPost("/register", async (RegisterUserRequest request, ISender sender) =>
         {
+            var command = new RegisterUserCommand(
+                request.Email,
+                request.Password,
+                request.FullName,
+                request.Role,
+                request.PhoneNumber);
             var result = await sender.Send(command);
             return result.ToHttpResult();
         })
+        .Produces<AuthResponse>()
         .WithName("Register")
         .WithSummary("Đăng ký tài khoản mới (Mentor hoặc Mentee)");
 
-        group.MapPost("/login", async (LoginCommand command, HttpContext httpContext, ISender sender) =>
+        group.MapPost("/login", async (LoginRequest request, HttpContext httpContext, ISender sender) =>
         {
             var ip = httpContext.Connection.RemoteIpAddress?.ToString();
-            var result = await sender.Send(command with { IpAddress = ip });
+            var command = new LoginCommand(request.Email, request.Password, ip);
+            var result = await sender.Send(command);
 
             if (result.IsSuccess && !string.IsNullOrEmpty(result.Value.RefreshToken))
             {
@@ -46,6 +56,7 @@ public static class AuthEndpoints
 
             return result.ToHttpResult();
         })
+        .Produces<AuthResponse>()
         .WithName("Login")
         .WithSummary("Đăng nhập email/mật khẩu, cấp Access Token và Refresh Token");
 
@@ -74,6 +85,7 @@ public static class AuthEndpoints
 
             return result.ToHttpResult();
         })
+        .Produces<AuthResponse>()
         .WithName("RefreshToken")
         .WithSummary("Cấp mới Access Token bằng Refresh Token (Token Rotation)");
 
@@ -110,7 +122,3 @@ public static class AuthEndpoints
         .WithSummary("Đổi mật khẩu tài khoản");
     }
 }
-
-public sealed record RefreshTokenRequest(string? RefreshToken);
-public sealed record LogoutRequest(string? RefreshToken);
-public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);

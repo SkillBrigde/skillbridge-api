@@ -23,10 +23,15 @@ Mọi code bạn viết ra BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT các q
 Bên trong `src/Modules/{ModuleName}/`:
 - `Domain/`: Entities, Value Objects, Domain Events (`IDomainEvent`), Domain Errors (`Error`).
 - `Application/`: CQRS Commands/Queries, DTOs, FluentValidation.
+- `Application/Commands/{UseCase}/` và `Application/Queries/{UseCase}/`: Yêu cầu xử lý nội bộ, handler và validator tương ứng.
+- `Application/DTOs/Requests/`: DTO `*Request` nhận HTTP body hoặc query parameters.
+- `Application/DTOs/Responses/`: DTO `*Response` chứa dữ liệu API trả về.
 - `Infrastructure/Data/`: `{ModuleName}DbContext` và `Configurations/` (`IEntityTypeConfiguration<T>`).
 - `Infrastructure/Migrations/`: Thư mục chứa EF Core migrations.
 - `Endpoints/`: Minimal APIs gom nhóm theo `/api/v1/{routePrefix}`.
 - `{ModuleName}Module.cs`: Kế thừa `ModuleDefinition`.
+
+Endpoint nhận Request DTO rồi ánh xạ sang Command/Query trước khi gọi MediatR; không bind trực tiếp Command/Query từ HTTP. Khi refactor phải giữ nguyên tên trường JSON, query parameters và giá trị mặc định. Dữ liệu phía server như IP đăng nhập thực tế phải lấy từ `HttpContext`, không sử dụng giá trị client gửi trong Request DTO.
 
 ### 3. QUY CHUẨN C# 13 & EF CORE 10:
 - Luôn dùng file-scoped namespace: `namespace SkillBridge.Modules.{ModuleName};`.
