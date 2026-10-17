@@ -11,9 +11,19 @@
 - `buffer_time_minutes`: khoảng thời gian nghỉ giữa 2 buổi mentoring.
 - `lead_time_hours`: người học (mentee) phải đặt lịch trước ít nhất số giờ quy định này.
 
+**Quy ước thời gian dùng cho các API Scheduling:**
+- `timezone` dùng mã IANA hoặc `UTC`; availability rule lưu giờ địa phương theo múi giờ của Mentor.
+- Slots thực tế được lưu bằng UTC và được sinh sẵn đến giới hạn `maxDaysInAdvance`; thay đổi settings, rule hoặc time-off sẽ tái sinh phần lịch bị ảnh hưởng trong cùng transaction.
+- `startDate`, `endDate` của truy vấn slots và time-off đều bao gồm cả ngày đầu lẫn ngày cuối theo múi giờ Mentor.
+- Khi đổi giờ mùa hè (DST), giờ địa phương không tồn tại sẽ bị bỏ qua; giờ bị lặp dùng lần xuất hiện sớm hơn để không sinh trùng slot.
+- Các availability rule đang hoạt động trong cùng một thứ không được chồng lấn.
+- Time-off khóa slot `Available`; nếu chồng lên slot `Held` hoặc `Booked`, yêu cầu bị từ chối và không tự hủy lịch đã giữ/đặt.
+
 ---
 
 ## 1. Lấy cài đặt lịch (Settings)
+
+**Trạng thái:** `IMPLEMENTED`
 
 **HTTP Method:** `GET`  
 **URL:** `/api/v1/scheduling/settings`  
@@ -33,9 +43,19 @@
 }
 ```
 
+### Responses
+
+- `200 OK`: Lấy cài đặt lịch thành công.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Tài khoản không có vai trò Mentor.
+- `404 Not Found`: Mentor chưa cấu hình cài đặt lịch.
+- `409 Conflict`: Mentor chưa tạo hồ sơ Profiles.
+
 ---
 
 ## 2. Cập nhật cài đặt lịch
+
+**Trạng thái:** `IMPLEMENTED`
 
 **HTTP Method:** `PUT`  
 **URL:** `/api/v1/scheduling/settings`  
@@ -55,6 +75,23 @@
 
 ### Response Body (204 No Content)
 Trống.
+
+### Quy tắc nghiệp vụ
+
+- `sessionDurationMinutes`: từ 15 đến 240 phút, là bội số của 15.
+- `bufferTimeMinutes`: từ 0 đến 120 phút, là bội số của 5.
+- `leadTimeHours`: từ 0 đến 720 giờ và không vượt quá `maxDaysInAdvance * 24`.
+- `maxDaysInAdvance`: từ 1 đến 365 ngày.
+- `timezone`: mã múi giờ IANA hợp lệ (ví dụ `Asia/Ho_Chi_Minh`) hoặc `UTC`.
+- Lần `PUT` đầu tiên tạo settings; các lần tiếp theo cập nhật cùng bản ghi.
+
+### Responses
+
+- `204 No Content`: Tạo hoặc cập nhật thành công.
+- `400 Bad Request`: Dữ liệu không hợp lệ.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Tài khoản không có vai trò Mentor.
+- `409 Conflict`: Mentor chưa tạo hồ sơ Profiles.
 
 ---
 
