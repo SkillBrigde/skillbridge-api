@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SkillBridge.BuildingBlocks.Messaging.Behaviors;
 using SkillBridge.BuildingBlocks.Messaging.Events;
 using SkillBridge.BuildingBlocks.Persistence.Interceptors;
+using SkillBridge.BuildingBlocks.RateLimiting;
 
 namespace SkillBridge.BuildingBlocks;
 
@@ -43,6 +44,7 @@ public static class BuildingBlocksExtensions
         services.AddScoped<AuditInterceptor>();
         services.AddScoped<DispatchDomainEventsInterceptor>();
 
+        services.AddRedisRateLimiting(configuration);
         return services;
     }
 }

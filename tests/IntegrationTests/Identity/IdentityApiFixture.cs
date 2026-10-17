@@ -22,7 +22,8 @@ using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
 using SkillBridge.Modules.Identity.Application.Users.GetUsers;
 using SkillBridge.Modules.Identity.Application.Users.Responses;
 using SkillBridge.Modules.Identity.Endpoints;
-
+using SkillBridge.BuildingBlocks.RateLimiting;
+using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.IntegrationTests.Identity;
 
 public sealed class IdentityApiFixture : IAsyncLifetime
@@ -31,6 +32,8 @@ public sealed class IdentityApiFixture : IAsyncLifetime
     public const string RemoteIp = "203.0.113.41";
     public HttpClient Client { get; private set; } = null!;
     public RecordingSender Sender { get; private set; } = null!;
+
+    public StubRateLimitStore RateLimiter { get; } = new();
     private WebApplication _app = null!;
 
     public async Task InitializeAsync()
@@ -46,6 +49,8 @@ public sealed class IdentityApiFixture : IAsyncLifetime
         var sender = DispatchProxy.Create<ISender, RecordingSender>();
         Sender = (RecordingSender)sender;
         builder.Services.AddSingleton(sender);
+        builder.Services.AddOptions<LoginRateLimitOptions>();
+        builder.Services.AddSingleton<IRateLimitStore>(RateLimiter);
         _app = builder.Build();
         _app.Use(async (context, next) =>
         {
@@ -93,6 +98,31 @@ public sealed class IdentityApiFixture : IAsyncLifetime
         private static UserResponse User() => new(
             UserId, "fixture@example.test", "Fixture User", "Mentee", null, null,
             false, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+    }
+
+    public sealed class StubRateLimitStore : IRateLimitStore
+    {
+        public RateLimitDecision Decision { get; set; } = new(
+            IsAllowed: true,
+            RetryAfterSeconds: 0);
+
+        public Exception? Failure { get; set; }
+
+        public Task<RateLimitDecision> TryAcquireAsync(
+            string key,
+            int permitLimit,
+            TimeSpan window,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (Failure is { } failure)
+            {
+                return Task.FromException<RateLimitDecision>(failure);
+            }
+
+            return Task.FromResult(Decision);
+        }
     }
 
     private sealed class FixtureCurrentUser(IHttpContextAccessor accessor) : ICurrentUser

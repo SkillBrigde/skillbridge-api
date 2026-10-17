@@ -11,7 +11,7 @@ using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
 using SkillBridge.Modules.Identity.Application.Auth.Register;
 using SkillBridge.Modules.Identity.Application.Auth.Requests;
 using SkillBridge.Modules.Identity.Application.Auth.Responses;
-
+using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.Modules.Identity.Endpoints;
 
 public static class AuthEndpoints
@@ -51,7 +51,10 @@ public static class AuthEndpoints
 
             return result.ToHttpResult();
         })
+        .AddEndpointFilter<LoginRateLimitFilter>()
         .Produces<AuthResponse>()
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
         .WithName("Login")
         .WithSummary("Đăng nhập email/mật khẩu, cấp Access Token và Refresh Token");
 

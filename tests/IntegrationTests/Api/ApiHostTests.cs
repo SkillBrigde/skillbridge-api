@@ -137,7 +137,8 @@ public sealed class ApiHostTests
         var settings = new Dictionary<string, string?>
         {
             ["Jwt:SecretKey"] = "FixtureOnlyHostSigningKeyWithAtLeastSixtyFourCharactersForTests12345!",
-            ["ConnectionStrings:Database"] = "Host=127.0.0.1;Database=fixture;Username=fixture;Password=fixture"
+            ["ConnectionStrings:Database"] = "Host=127.0.0.1;Database=fixture;Username=fixture;Password=fixture",
+            ["Redis:ConnectionString"] = "127.0.0.1:6379"
         };
         if (configuredOrigins)
             settings["Cors:AllowedOrigins:0"] = "https://client.example.test";

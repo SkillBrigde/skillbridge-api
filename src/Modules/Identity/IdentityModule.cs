@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using SkillBridge.BuildingBlocks.Modules;
 using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Infrastructure.Persistence;
-
+using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.Modules.Identity;
 
 public sealed class IdentityModule : ModuleDefinition
@@ -30,6 +30,14 @@ public sealed class IdentityModule : ModuleDefinition
                 npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema);
             });
         });
+
+        services.AddOptions<LoginRateLimitOptions>()
+            .Bind(configuration.GetSection(LoginRateLimitOptions.SectionName))
+            .Validate(options => options.PermitLimit > 0,
+                "PermitLimit must be greater than zero.")
+            .Validate(options => options.WindowSeconds > 0,
+                "WindowSeconds must be greater than zero.")
+            .ValidateOnStart();
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
