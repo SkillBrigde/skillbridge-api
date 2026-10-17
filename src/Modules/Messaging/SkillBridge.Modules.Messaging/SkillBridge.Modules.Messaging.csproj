@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@
     <Project Path="src/Api/SkillBridge.Api.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
-    <Project Path="src/BuildingBlocks/SkillBridge.BuildingBlocks/SkillBridge.BuildingBlocks.csproj" />
+    <Project Path="src/BuildingBlocks/SkillBridge.BuildingBlocks.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
     <Project

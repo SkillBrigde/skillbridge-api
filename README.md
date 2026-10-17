@@ -7,7 +7,7 @@ Hệ thống Backend xây dựng theo kiến trúc **Modular Monolith** trên n�
 ## 🏛️ Kiến trúc hệ thống
 
 - `src/Api`: Điểm khởi chạy (Composition Root), quản lý HTTP pipeline, health checks, OpenAPI/Scalar, CORS, rate limiting.
-- `src/BuildingBlocks/SkillBridge.BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`).
+- `src/BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`).
 - `src/Modules/*`: Các phân hệ nghiệp vụ độc lập theo **7 Bounded Contexts** (1. Identity & RBAC, 2. Sessions & Thiết Bị, 3. Profiles & Services, 4. Scheduling & Slots, 5. Bookings & Sessions, 6. Payments & Dual Escrow, 7. Trust & Disputes).
 - **Ranh giới dữ liệu**: Mỗi phân hệ quản lý 24 bảng chuyên trách, giao tiếp bằng decoupled GUIDv7, không khóa ngoại vật lý chéo schema.
 - **Giao tiếp liên phân hệ**: Các phân hệ **không reference chéo trực tiếp**. Sử dụng contracts và integration events qua RabbitMQ.

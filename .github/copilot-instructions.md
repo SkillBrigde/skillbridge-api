@@ -10,7 +10,7 @@ When generating or refactoring code for this repository, you **MUST STRICTLY OBE
 
 1. **NO Cross-Module Project References**:
     - Modules in `src/Modules/*` must NEVER reference one another.
-    - Modules may ONLY reference `src/BuildingBlocks/SkillBridge.BuildingBlocks`.
+    - Modules may ONLY reference `src/BuildingBlocks`.
     - `src/Api` is the composition root that references all modules.
 2. **NO Business Logic in BuildingBlocks**:
     - `BuildingBlocks` is the Shared Kernel containing ONLY technical primitives (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result`, `IModule`).

@@ -6,7 +6,7 @@
 
     <ItemGroup>
         <!-- Module chỉ được phụ thuộc vào BuildingBlocks, không phụ thuộc module khác -->
-        <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+        <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
     </ItemGroup>
 
     <ItemGroup>

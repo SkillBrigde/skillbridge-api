@@ -26,7 +26,7 @@ Hệ thống được đóng gói triển khai dưới dạng **một tiến tr�
 graph TD
     Bootstrapper["src/Api<br/>(Host API, Middleware, HealthChecks, Scalar/OpenAPI, CurrentUser)"]
 
-    BB["src/BuildingBlocks/SkillBridge.BuildingBlocks<br/>(Contracts, CQRS, MediatR Behaviors, Events, Pagination, Auditing, Interceptors)"]
+    BB["src/BuildingBlocks<br/>(Contracts, CQRS, MediatR Behaviors, Events, Pagination, Auditing, Interceptors)"]
 
     ModIdentity["src/Modules/Identity<br/>(Schema: identity)"]
     ModCatalog["src/Modules/Catalog<br/>(Schema: catalog)"]
@@ -220,7 +220,7 @@ Mở `src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalo
 
   <ItemGroup>
     <!-- Chỉ được reference tới BuildingBlocks, TUYỆT ĐỐI không reference module khác -->
-    <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
   </ItemGroup>
 
 </Project>

@@ -136,7 +136,7 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
     app.Run();
     ```
 - Mỗi module tự đăng ký các Minimal API của mình:
-    - Base class [ModuleDefinition.cs](file:///d:/Projects/skillbridge-api/src/BuildingBlocks/SkillBridge.BuildingBlocks/Contracts/ModuleDefinition.cs) tạo sẵn endpoint probe: `GET /api/v1/{routePrefix}/_module`.
+    - Base class [ModuleDefinition.cs](file:///d:/Projects/skillbridge-api/src/BuildingBlocks/Contracts/ModuleDefinition.cs) tạo sẵn endpoint probe: `GET /api/v1/{routePrefix}/_module`.
     - [IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/SkillBridge.Modules.Identity/IdentityModule.cs) đăng ký thêm:
         - `GET /api/v1/identity/users/me`
         - `GET /api/v1/identity/users`

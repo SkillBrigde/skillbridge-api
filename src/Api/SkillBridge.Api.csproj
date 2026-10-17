@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference
-      Include="..\BuildingBlocks\SkillBridge.BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
+      Include="..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
     <ProjectReference
       Include="..\Modules\Booking\SkillBridge.Modules.Booking\SkillBridge.Modules.Booking.csproj" />
     <ProjectReference
