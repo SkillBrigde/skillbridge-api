@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.Modules.Messaging.Application;
+using SkillBridge.Modules.Messaging.Application.DTOs.Responses;
 using SkillBridge.Modules.Messaging.Infrastructure;
 
 namespace SkillBridge.Modules.Messaging.Endpoints;
@@ -29,10 +30,10 @@ public sealed class ChatHub(MessagingService service, IMessagingUserDirectory us
         return base.OnDisconnectedAsync(exception);
     }
 
-    public async Task<ChatResult<MessageDto>> SendMessage(Guid conversationId, string? content)
+    public async Task<ChatResult<MessageResponse>> SendMessage(Guid conversationId, string? content)
     {
         var userId = await ValidUserAsync();
-        return userId is null ? ChatResult<MessageDto>.Unauthorized() : ChatResult<MessageDto>.From(
+        return userId is null ? ChatResult<MessageResponse>.Unauthorized() : ChatResult<MessageResponse>.From(
             await service.SendAsync(userId.Value, conversationId, new(content), Context.ConnectionAborted));
     }
 

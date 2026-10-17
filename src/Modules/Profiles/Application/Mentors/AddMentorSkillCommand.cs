@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Profiles.Application.DTOs;
+using SkillBridge.Modules.Profiles.Application.DTOs.Responses;
 using SkillBridge.Modules.Profiles.Domain;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -13,7 +13,7 @@ public sealed record AddMentorSkillCommand(
     Guid UserId,
     Guid SkillId,
     string ProficiencyLevel,
-    int YearsOfExperience) : ICommand<MentorSkillDto>;
+    int YearsOfExperience) : ICommand<MentorSkillResponse>;
 
 public sealed class AddMentorSkillCommandValidator : AbstractValidator<AddMentorSkillCommand>
 {
@@ -33,9 +33,9 @@ public sealed class AddMentorSkillCommandValidator : AbstractValidator<AddMentor
 public sealed class AddMentorSkillCommandHandler(
     ProfilesDbContext dbContext,
     ISkillDirectory skillDirectory,
-    TimeProvider timeProvider) : ICommandHandler<AddMentorSkillCommand, MentorSkillDto>
+    TimeProvider timeProvider) : ICommandHandler<AddMentorSkillCommand, MentorSkillResponse>
 {
-    public async Task<Result<MentorSkillDto>> Handle(
+    public async Task<Result<MentorSkillResponse>> Handle(
         AddMentorSkillCommand request,
         CancellationToken cancellationToken)
     {
@@ -86,6 +86,6 @@ public sealed class AddMentorSkillCommandHandler(
             return Error.Conflict("Profiles.MentorSkillAlreadyExists", "Kỹ năng đã có trong hồ sơ Mentor.");
         }
 
-        return MentorSkillDto.From(created.Value);
+        return MentorSkillResponse.From(created.Value);
     }
 }

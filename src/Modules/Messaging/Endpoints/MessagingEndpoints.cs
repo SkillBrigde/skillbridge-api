@@ -5,6 +5,8 @@ using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Messaging.Application;
+using SkillBridge.Modules.Messaging.Application.DTOs.Requests;
+using SkillBridge.Modules.Messaging.Application.DTOs.Responses;
 
 namespace SkillBridge.Modules.Messaging.Endpoints;
 
@@ -70,7 +72,7 @@ public static class MessagingEndpoints
         group.MapGet("/unread-count", async (ICurrentUser user, MessagingService service, CancellationToken ct) =>
         {
             if (user.UserId is not Guid userId) return Results.Unauthorized();
-            return Results.Ok(new { count = await service.GetUnreadCountAsync(userId, ct) });
+            return Results.Ok(new UnreadCountResponse(await service.GetUnreadCountAsync(userId, ct)));
         }).WithName("GetMessagingUnreadCount");
 
     }

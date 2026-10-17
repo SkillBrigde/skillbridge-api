@@ -1,17 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Scheduling.Application.DTOs.Responses;
 using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Modules.Scheduling.Application;
 
-public sealed record GetSchedulingSettingsQuery(Guid UserId) : IQuery<SchedulingSettingsDto>;
+public sealed record GetSchedulingSettingsQuery(Guid UserId) : IQuery<SchedulingSettingsResponse>;
 
 public sealed class GetSchedulingSettingsQueryHandler(
     SchedulingDbContext dbContext,
-    IMentorDirectory mentorDirectory) : IQueryHandler<GetSchedulingSettingsQuery, SchedulingSettingsDto>
+    IMentorDirectory mentorDirectory) : IQueryHandler<GetSchedulingSettingsQuery, SchedulingSettingsResponse>
 {
-    public async Task<Result<SchedulingSettingsDto>> Handle(
+    public async Task<Result<SchedulingSettingsResponse>> Handle(
         GetSchedulingSettingsQuery request,
         CancellationToken cancellationToken)
     {
@@ -27,6 +28,6 @@ public sealed class GetSchedulingSettingsQueryHandler(
 
         return settings is null
             ? SchedulingSettingsErrors.NotFound
-            : SchedulingSettingsDto.From(settings);
+            : SchedulingSettingsResponse.From(settings);
     }
 }

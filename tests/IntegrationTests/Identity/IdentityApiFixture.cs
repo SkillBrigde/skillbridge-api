@@ -16,14 +16,9 @@ using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.RateLimiting;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.Auth.Login;
-using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
-using SkillBridge.Modules.Identity.Application.Auth.Register;
-using SkillBridge.Modules.Identity.Application.Auth.Responses;
-using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUsers;
-using SkillBridge.Modules.Identity.Application.Users.Responses;
+using SkillBridge.Modules.Identity.Application.Auth;
+using SkillBridge.Modules.Identity.Application.Users;
+using SkillBridge.Modules.Identity.Application.Users.DTOs.Responses;
 using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.IntegrationTests.Identity;
@@ -84,7 +79,7 @@ public sealed class IdentityApiFixture : IAsyncLifetime
     public class RecordingSender : DispatchProxy
     {
         public object? LastRequest { get; set; }
-        public Result<AuthResponse>? AuthResultOverride { get; set; }
+        public Result<AuthenticationResult>? AuthResultOverride { get; set; }
 
         protected override object Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -96,22 +91,22 @@ public sealed class IdentityApiFixture : IAsyncLifetime
             {
                 RegisterUserCommand => Task.FromResult(Result<Guid>.Success(UserId)),
                 LoginCommand or RefreshTokenCommand =>
-                    Task.FromResult(AuthResultOverride ?? Result<AuthResponse>.Success(new AuthResponse(
+                    Task.FromResult(AuthResultOverride ?? Result<AuthenticationResult>.Success(new AuthenticationResult(
                         UserId, "fixture@example.test", "Fixture User", "Mentee",
                         "fixture-access-token", "fixture-refresh-token", 900))),
-                GetCurrentUserQuery => Task.FromResult(Result<UserResponse>.Success(User())),
-                GetUserQuery => Task.FromResult(Result<UserDetailsDto>.Success(new UserDetailsDto(
+                GetCurrentUserQuery => Task.FromResult(Result<CurrentUserResponse>.Success(new CurrentUserResponse(UserId, "fixture@example.test", "Fixture User", "Mentee", true))),
+                GetUserQuery => Task.FromResult(Result<UserDetailsResponse>.Success(new UserDetailsResponse(
                     UserId, "fixture@example.test", "Fixture User", "Mentee", true, false, null, 0,
                     DateTimeOffset.Parse("2026-01-01T00:00:00Z"), null))),
-                GetUsersQuery => Task.FromResult(Result<PagedResult<UserResponse>>.Success(
-                    PagedResult<UserResponse>.Create([User()], 1, 10, 1))),
+                GetUsersQuery => Task.FromResult(Result<PagedResult<UserSummaryResponse>>.Success(
+                    PagedResult<UserSummaryResponse>.Create([User()], 1, 10, 1))),
                 _ => Task.FromResult(Result.Success())
             };
         }
 
-        private static UserResponse User() => new(
-            UserId, "fixture@example.test", "Fixture User", "Mentee", null, null,
-            false, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        private static UserSummaryResponse User() => new(
+            UserId, "fixture@example.test", "Fixture User", "Mentee",
+            true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
     }
 
     public sealed class StubRateLimitStore : IRateLimitStore

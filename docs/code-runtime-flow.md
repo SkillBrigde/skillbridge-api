@@ -19,7 +19,7 @@ sequenceDiagram
     participant ExcMid as GlobalExceptionHandler.cs
     participant Route as Endpoint / Minimal API
     participant Sender as MediatR
-    participant Handler as Application/Users/GetUsers/GetUsers.cs
+    participant Handler as Application/Users/GetUsers.cs
     participant Module as IdentityModule.cs
     participant DbContext as IdentityDbContext.cs
     participant DB as PostgreSQL (Schema: identity)
@@ -40,8 +40,8 @@ sequenceDiagram
     Handler->>DbContext: Lọc, đếm và phân trang Users
     DbContext->>DB: Thực thi truy vấn identity.users
     DB-->>DbContext: Trả về dữ liệu trang và tổng số
-    DbContext-->>Handler: Dữ liệu được ánh xạ thành UserResponse
-    Handler-->>Sender: Result chứa PagedResult của UserResponse
+    DbContext-->>Handler: Dữ liệu được ánh xạ thành UserSummaryResponse
+    Handler-->>Sender: Result chứa PagedResult của UserSummaryResponse
     Sender-->>Route: Kết quả xử lý
     Route-->>CorrMid: ToHttpResult()
     CorrMid-->>ExcMid: Đính kèm X-Correlation-ID vào response
@@ -181,10 +181,10 @@ Giả sử Client gửi một request:
 
 - **Các bước chi tiết**:
     1. ASP.NET Core Router phân giải đường dẫn khớp với template `/api/v1/identity/users`.
-    2. Endpoint bind query parameters vào [GetUsersRequest.cs](../src/Modules/Identity/Application/Users/Requests/GetUsersRequest.cs), tạo `GetUsersQuery` và gửi qua `ISender`.
-    3. MediatR chạy pipeline behaviors trong `BuildingBlocks/Messaging/Behaviors/`, sau đó gọi handler trong [GetUsers.cs](../src/Modules/Identity/Application/Users/GetUsers/GetUsers.cs).
+    2. Endpoint bind query parameters vào [GetUsersRequest.cs](../src/Modules/Identity/Application/Users/DTOs/Requests/GetUsersRequest.cs), tạo `GetUsersQuery` và gửi qua `ISender`.
+    3. MediatR chạy pipeline behaviors trong `BuildingBlocks/Messaging/Behaviors/`, sau đó gọi handler trong [GetUsers.cs](../src/Modules/Identity/Application/Users/GetUsers.cs).
     4. Handler dùng [IdentityDbContext.cs](../src/Modules/Identity/Infrastructure/Persistence/IdentityDbContext.cs) và [UserConfiguration.cs](../src/Modules/Identity/Infrastructure/Persistence/Configurations/UserConfiguration.cs) để lọc, đếm và phân trang `identity.users`.
-    5. Kết quả là `Result<PagedResult<UserResponse>>`; endpoint dùng `ToHttpResult()` trả JSON phân trang. Nhóm `Auth` áp dụng cùng cách tổ chức use case, Requests và Responses riêng.
+    5. Kết quả là `Result<PagedResult<UserSummaryResponse>>`; endpoint ánh xạ sang `UsersResponse` để giữ JSON phân trang với trường `page`. Nhóm `Auth` áp dụng cùng cách tổ chức use case, Requests và Responses riêng.
 
 ### 4. Phản hồi trả về Client
 
@@ -193,7 +193,7 @@ Giả sử Client gửi một request:
 - Client nhận được:
     - **HTTP Status**: `200 OK`
     - **Headers**: `Content-Type: application/json`, `X-Correlation-ID: ...`
-    - **Body**: JSON phân trang chứa các `UserResponse` và thông tin trang/tổng số.
+    - **Body**: JSON phân trang chứa các `UserSummaryResponse` và thông tin trang/tổng số.
 
 ---
 

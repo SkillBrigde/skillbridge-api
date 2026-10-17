@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using FluentValidation;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
 using SkillBridge.Modules.Catalog.Domain;
 
 namespace SkillBridge.Modules.Catalog.Application;
@@ -8,20 +9,6 @@ namespace SkillBridge.Modules.Catalog.Application;
 public interface IMentorDirectory
 {
     Task<Result<Guid>> GetMentorIdAsync(Guid userId, CancellationToken cancellationToken);
-}
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record MentorServiceRequest(string? Title, string? Description, string? ServiceType,
-    int? DurationMinutes, decimal? Price, string? Currency, int? TotalSessions, string? Deliverables, bool? IsActive);
-
-public sealed record MentorServiceDto(Guid Id, Guid MentorId, string Title, string Description, string ServiceType,
-    int DurationMinutes, decimal Price, string Currency, int TotalSessions, string Deliverables,
-    bool IsActive, long Version, DateTimeOffset CreatedAtUtc, DateTimeOffset? UpdatedAtUtc)
-{
-    public static MentorServiceDto From(MentorService service) => new(service.Id, service.MentorId,
-        service.Title, service.Description, service.ServiceType, service.DurationMinutes, service.Price,
-        service.Currency, service.TotalSessions, service.Deliverables, service.IsActive, service.Version,
-        service.CreatedAtUtc, service.UpdatedAtUtc);
 }
 
 public sealed record MentorServiceSnapshot(Guid ServiceId, long ServiceVersion, Guid MentorId, Guid MentorUserId,

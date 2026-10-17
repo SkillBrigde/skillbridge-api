@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Profiles.Application.DTOs.Requests;
 using SkillBridge.Modules.Profiles.Application.Mentors;
 
 namespace SkillBridge.Modules.Profiles.Endpoints;
@@ -31,6 +32,3 @@ public static class UpdateMentorVerificationEndpoint
         }).WithName("UpdateMentorVerification");
     }
 }
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record UpdateMentorVerificationRequest(string? VerificationStatus);

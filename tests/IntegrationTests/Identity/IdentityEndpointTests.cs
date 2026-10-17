@@ -3,19 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Net.Http.Headers;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Identity.Application.Auth.ChangePassword;
-using SkillBridge.Modules.Identity.Application.Auth.ForgotPassword;
-using SkillBridge.Modules.Identity.Application.Auth.Login;
-using SkillBridge.Modules.Identity.Application.Auth.Logout;
-using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
-using SkillBridge.Modules.Identity.Application.Auth.Register;
-using SkillBridge.Modules.Identity.Application.Auth.ResetPassword;
-using SkillBridge.Modules.Identity.Application.Auth.Responses;
-using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUsers;
-using SkillBridge.Modules.Identity.Application.Users.UpdateCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.UpdateUserStatus;
+using SkillBridge.Modules.Identity.Application.Auth;
+using SkillBridge.Modules.Identity.Application.Users;
 
 namespace SkillBridge.IntegrationTests.Identity;
 
@@ -225,8 +214,8 @@ public sealed class IdentityEndpointTests(IdentityApiFixture api) : IClassFixtur
         try
         {
             api.Sender.AuthResultOverride = outcome == "failure"
-                ? Result<AuthResponse>.Failure(Error.Validation("Fixture.Invalid", "Fixture rejection"))
-                : Result<AuthResponse>.Success(new AuthResponse(
+                ? Result<AuthenticationResult>.Failure(Error.Validation("Fixture.Invalid", "Fixture rejection"))
+                : Result<AuthenticationResult>.Success(new AuthenticationResult(
                     IdentityApiFixture.UserId, "fixture@example.test", "Fixture User", "Mentee",
                     "fixture-access-token", "", 900));
             using var response = await api.Client.PostAsync(AuthPath + operation,

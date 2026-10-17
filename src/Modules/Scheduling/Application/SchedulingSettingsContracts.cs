@@ -8,25 +8,6 @@ public interface IMentorDirectory
     Task<Result<Guid>> GetMentorIdAsync(Guid userId, CancellationToken cancellationToken);
 }
 
-public sealed record SchedulingSettingsDto(
-    Guid Id,
-    Guid MentorId,
-    int SessionDurationMinutes,
-    int BufferTimeMinutes,
-    int LeadTimeHours,
-    int MaxDaysInAdvance,
-    string Timezone)
-{
-    internal static SchedulingSettingsDto From(SchedulingSettings settings) => new(
-        settings.Id,
-        settings.MentorId,
-        settings.SessionDurationMinutes,
-        settings.BufferTimeMinutes,
-        settings.LeadTimeHours,
-        settings.MaxDaysInAdvance,
-        settings.Timezone);
-}
-
 public static class SchedulingSettingsErrors
 {
     public static readonly Error NotFound = Error.NotFound(

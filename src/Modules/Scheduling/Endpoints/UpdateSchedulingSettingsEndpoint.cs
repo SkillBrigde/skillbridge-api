@@ -7,6 +7,7 @@ using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Scheduling.Application;
+using SkillBridge.Modules.Scheduling.Application.DTOs.Requests;
 
 namespace SkillBridge.Modules.Scheduling.Endpoints;
 
@@ -37,11 +38,3 @@ public static class UpdateSchedulingSettingsEndpoint
         }).WithName("UpdateCurrentMentorSchedulingSettings");
     }
 }
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record UpdateSchedulingSettingsRequest(
-    int SessionDurationMinutes,
-    int BufferTimeMinutes,
-    int LeadTimeHours,
-    int MaxDaysInAdvance,
-    string Timezone);

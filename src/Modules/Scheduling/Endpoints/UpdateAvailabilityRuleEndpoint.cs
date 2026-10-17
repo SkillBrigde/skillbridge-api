@@ -7,6 +7,7 @@ using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Scheduling.Application;
+using SkillBridge.Modules.Scheduling.Application.DTOs.Requests;
 
 namespace SkillBridge.Modules.Scheduling.Endpoints;
 
@@ -33,10 +34,3 @@ public static class UpdateAvailabilityRuleEndpoint
         }).WithName("UpdateCurrentMentorAvailabilityRule");
     }
 }
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record UpdateAvailabilityRuleRequest(
-    [property: JsonRequired] int DayOfWeek,
-    [property: JsonRequired] TimeOnly StartTime,
-    [property: JsonRequired] TimeOnly EndTime,
-    [property: JsonRequired] bool IsActive);

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Profiles.Application.DTOs.Requests;
 using SkillBridge.Modules.Profiles.Application.Mentees;
 
 namespace SkillBridge.Modules.Profiles.Endpoints;
@@ -41,12 +42,3 @@ public static class UpdateMenteeProfileEndpoint
         }).WithName("UpdateCurrentMenteeProfile");
     }
 }
-
-public sealed record UpdateMenteeProfileRequest(
-    string CareerGoal,
-    string CurrentLevel,
-    string Timezone,
-    decimal BudgetMin,
-    decimal BudgetMax,
-    string Currency,
-    string? AvatarUrl = null);

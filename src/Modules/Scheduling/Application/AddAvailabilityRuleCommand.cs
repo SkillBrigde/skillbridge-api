@@ -1,13 +1,14 @@
 using FluentValidation;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Scheduling.Application.DTOs.Responses;
 using SkillBridge.Modules.Scheduling.Domain;
 using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Modules.Scheduling.Application;
 
 public sealed record AddAvailabilityRuleCommand(
-    Guid UserId, int DayOfWeek, TimeOnly StartTime, TimeOnly EndTime) : ICommand<AvailabilityRuleDto>;
+    Guid UserId, int DayOfWeek, TimeOnly StartTime, TimeOnly EndTime) : ICommand<AvailabilityRuleResponse>;
 
 public sealed class AddAvailabilityRuleCommandValidator : AbstractValidator<AddAvailabilityRuleCommand>
 {
@@ -29,9 +30,9 @@ public sealed class AddAvailabilityRuleCommandHandler(
     SchedulingDbContext dbContext,
     AvailabilityRuleStore ruleStore,
     IMentorDirectory mentorDirectory,
-    TimeProvider timeProvider) : ICommandHandler<AddAvailabilityRuleCommand, AvailabilityRuleDto>
+    TimeProvider timeProvider) : ICommandHandler<AddAvailabilityRuleCommand, AvailabilityRuleResponse>
 {
-    public async Task<Result<AvailabilityRuleDto>> Handle(
+    public async Task<Result<AvailabilityRuleResponse>> Handle(
         AddAvailabilityRuleCommand request,
         CancellationToken cancellationToken)
     {
@@ -67,6 +68,6 @@ public sealed class AddAvailabilityRuleCommandHandler(
         dbContext.AvailabilityRules.Add(created.Value);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return AvailabilityRuleDto.From(created.Value);
+        return AvailabilityRuleResponse.From(created.Value);
     }
 }

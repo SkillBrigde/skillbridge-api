@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Profiles.Application.DTOs.Requests;
 using SkillBridge.Modules.Profiles.Application.Mentors;
 
 namespace SkillBridge.Modules.Profiles.Endpoints;

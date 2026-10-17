@@ -7,6 +7,8 @@ using Npgsql;
 using SkillBridge.BuildingBlocks.Events;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Messaging.Application.DTOs.Requests;
+using SkillBridge.Modules.Messaging.Application.DTOs.Responses;
 using SkillBridge.Modules.Messaging.Domain;
 using SkillBridge.Modules.Messaging.Infrastructure;
 
@@ -15,7 +17,7 @@ namespace SkillBridge.Modules.Messaging.Application;
 public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirectory users,
     IMessageNotifier notifier, ILogger<MessagingService> logger)
 {
-    public async Task<Result<PagedResult<ConversationDto>>> GetConversationsAsync(Guid userId, int page, int pageSize, CancellationToken ct)
+    public async Task<Result<PagedResult<ConversationResponse>>> GetConversationsAsync(Guid userId, int page, int pageSize, CancellationToken ct)
     {
         if (page < 1 || page > 100000 || pageSize is < 1 or > 100)
             return Error.Validation("Messaging.Pagination", "Page must be 1–100000 and pageSize 1–100.");
@@ -23,13 +25,13 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         var count = await query.LongCountAsync(ct);
         var items = await query.OrderByDescending(conversation => conversation.LastMessageAtUtc ?? conversation.CreatedAtUtc)
             .ThenByDescending(conversation => conversation.Id).Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(conversation => new ConversationDto(conversation.Id,
+            .Select(conversation => new ConversationResponse(conversation.Id,
                 conversation.Participant1Id == userId ? conversation.Participant2Id : conversation.Participant1Id,
                 conversation.LastMessagePreview, conversation.LastMessageAtUtc,
                 db.Messages.Count(message => message.ConversationId == conversation.Id && message.SenderId != userId && !message.IsDeleted &&
                     message.Sequence > db.Participants.Where(participant => participant.ConversationId == conversation.Id && participant.UserId == userId)
                         .Select(participant => participant.LastReadSequence).First()))).ToListAsync(ct);
-        return PagedResult<ConversationDto>.Create(items, page, pageSize, count);
+        return PagedResult<ConversationResponse>.Create(items, page, pageSize, count);
     }
 
     public async Task<Result<ConversationResult>> CreateConversationAsync(Guid userId, CreateConversationRequest request, CancellationToken ct)
@@ -58,7 +60,7 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         }
     }
 
-    public async Task<Result<MessagePage>> GetMessagesAsync(Guid userId, Guid conversationId, string? cursor, int pageSize, CancellationToken ct)
+    public async Task<Result<MessagePageResponse>> GetMessagesAsync(Guid userId, Guid conversationId, string? cursor, int pageSize, CancellationToken ct)
     {
         if (pageSize is < 1 or > 100) return Error.Validation("Messaging.PageSize", "PageSize must be 1–100.");
         long before = long.MaxValue;
@@ -68,11 +70,11 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         var messages = await db.Messages.AsNoTracking().Where(message => message.ConversationId == conversationId && message.Sequence < before)
             .OrderByDescending(message => message.Sequence).Take(pageSize + 1).ToListAsync(ct);
         var more = messages.Count > pageSize;
-        var items = messages.Take(pageSize).Select(MessageDto.From).ToArray();
-        return new MessagePage(items, more ? items[^1].Sequence.ToString(CultureInfo.InvariantCulture) : null);
+        var items = messages.Take(pageSize).Select(MessageResponse.From).ToArray();
+        return new MessagePageResponse(items, more ? items[^1].Sequence.ToString(CultureInfo.InvariantCulture) : null);
     }
 
-    public async Task<Result<MessageDto>> SendAsync(Guid userId, Guid conversationId, SendMessageRequest request, CancellationToken ct)
+    public async Task<Result<MessageResponse>> SendAsync(Guid userId, Guid conversationId, SendMessageRequest request, CancellationToken ct)
     {
         var validation = Validate(request, new SendMessageValidator());
         if (validation != Error.None) return validation;
@@ -96,12 +98,12 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         });
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
-        var dto = MessageDto.From(message);
+        var dto = MessageResponse.From(message);
         await NotifyAsync(conversation, "ReceiveMessage", [dto]);
         return dto;
     }
 
-    public async Task<Result<MessageDto>> EditAsync(Guid userId, Guid conversationId, Guid messageId, EditMessageRequest request, CancellationToken ct)
+    public async Task<Result<MessageResponse>> EditAsync(Guid userId, Guid conversationId, Guid messageId, EditMessageRequest request, CancellationToken ct)
     {
         var validation = Validate(request, new EditMessageValidator());
         if (validation != Error.None) return validation;
@@ -117,7 +119,7 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         await NotifyAsync(conversation, "MessageEdited", [message.Id, message.Content]);
-        return MessageDto.From(message);
+        return MessageResponse.From(message);
     }
 
     public async Task<Result<bool>> DeleteAsync(Guid userId, Guid conversationId, Guid messageId, CancellationToken ct)
@@ -179,7 +181,7 @@ public sealed class MessagingService(MessagingDbContext db, IMessagingUserDirect
         WHERE id = {conversationId} AND (participant1_id = {userId} OR participant2_id = {userId}) FOR UPDATE
         """).SingleOrDefaultAsync(ct);
 
-    private async Task<ConversationDto> ToConversationAsync(Conversation conversation, Guid userId, CancellationToken ct)
+    private async Task<ConversationResponse> ToConversationAsync(Conversation conversation, Guid userId, CancellationToken ct)
     {
         var read = await db.Participants.Where(participant => participant.ConversationId == conversation.Id && participant.UserId == userId)
             .Select(participant => participant.LastReadSequence).SingleAsync(ct);

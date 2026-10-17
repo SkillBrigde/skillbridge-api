@@ -5,12 +5,9 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUsers;
-using SkillBridge.Modules.Identity.Application.Users.Requests;
-using SkillBridge.Modules.Identity.Application.Users.UpdateCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.UpdateUserStatus;
+using SkillBridge.Modules.Identity.Application.Users;
+using SkillBridge.Modules.Identity.Application.Users.DTOs.Requests;
+using SkillBridge.Modules.Identity.Application.Users.DTOs.Responses;
 
 namespace SkillBridge.Modules.Identity.Endpoints;
 
@@ -28,9 +25,7 @@ public static class UsersEndpoints
             }
 
             var result = await sender.Send(new GetCurrentUserQuery(currentUser.UserId.Value), cancellationToken);
-            return result.IsSuccess
-                ? Results.Ok(new { result.Value.Id, result.Value.Email, result.Value.FullName, result.Value.Role, result.Value.IsActive })
-                : result.Error.ToProblemDetails();
+            return result.ToHttpResult();
         }).WithName("GetCurrentUser");
 
         group.MapPut("/me", async (UpdateCurrentUserRequest request, ICurrentUser currentUser, ISender sender, CancellationToken cancellationToken) =>
@@ -44,24 +39,17 @@ public static class UsersEndpoints
             return result.IsSuccess ? Results.NoContent() : result.Error.ToProblemDetails();
         }).WithName("UpdateCurrentUser");
 
-        group.MapGet("/", async ([AsParameters] GetUsersRequest request, string? searchTerm, ISender sender, CancellationToken cancellationToken) =>
+        group.MapGet("/", async ([AsParameters] GetUsersRequest request, ISender sender, CancellationToken cancellationToken) =>
         {
             var result = await sender.Send(new GetUsersQuery(request.Page ?? 1, request.PageSize ?? 10,
-                request.Search ?? searchTerm, request.Role, request.IsActive), cancellationToken);
+                request.Search ?? request.SearchTerm, request.Role, request.IsActive), cancellationToken);
             if (result.IsFailure)
             {
                 return result.Error.ToProblemDetails();
             }
 
             var users = result.Value;
-            return Results.Ok(new
-            {
-                items = users.Items.Select(user => new { user.Id, user.Email, user.FullName, user.Role, user.IsActive, user.CreatedAtUtc }),
-                page = users.PageNumber,
-                users.PageSize,
-                users.TotalCount,
-                users.TotalPages
-            });
+            return Results.Ok(new UsersResponse(users.Items, users.PageNumber, users.PageSize, users.TotalCount, users.TotalPages));
         }).RequireAuthorization(policy => policy.RequireRole("Admin")).WithName("GetUsers");
 
         group.MapGet("/{userId:guid}", async (Guid userId, ISender sender, CancellationToken cancellationToken) =>
@@ -87,5 +75,3 @@ public static class UsersEndpoints
         }).RequireAuthorization(policy => policy.RequireRole("Admin")).WithName("UpdateUserStatus");
     }
 }
-
-public sealed record UpdateCurrentUserRequest(string FullName);

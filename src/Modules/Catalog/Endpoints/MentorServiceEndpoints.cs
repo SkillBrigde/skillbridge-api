@@ -6,6 +6,8 @@ using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Catalog.Application;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
+using SkillBridge.Modules.Catalog.Application.DTOs.Responses;
 
 namespace SkillBridge.Modules.Catalog.Endpoints;
 
@@ -52,7 +54,7 @@ public static class MentorServiceEndpoints
         }).RequireAuthorization(policy => policy.RequireRole("Mentor"));
     }
 
-    private static IResult Read(Result<MentorServiceDto> result, HttpContext context)
+    private static IResult Read(Result<MentorServiceResponse> result, HttpContext context)
     {
         if (result.IsFailure) return Problem(result.Error);
         context.Response.Headers.ETag = Quote(result.Value.Version);

@@ -5,6 +5,8 @@ using Npgsql;
 using SkillBridge.BuildingBlocks.Events;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
+using SkillBridge.Modules.Catalog.Application.DTOs.Responses;
 using SkillBridge.Modules.Catalog.Domain;
 using SkillBridge.Modules.Catalog.Infrastructure;
 
@@ -12,15 +14,15 @@ namespace SkillBridge.Modules.Catalog.Application;
 
 public sealed class CatalogService(CatalogDbContext db)
 {
-    public async Task<PagedResult<CategoryTreeDto>> GetCategoriesAsync(bool isTree, CancellationToken cancellationToken)
+    public async Task<PagedResult<CategoryTreeResponse>> GetCategoriesAsync(bool isTree, CancellationToken cancellationToken)
     {
         var categories = await db.Categories.AsNoTracking().OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name).ThenBy(category => category.Id).ToListAsync(cancellationToken);
-        var items = categories.Select(CategoryTreeDto.From).ToList();
+        var items = categories.Select(CategoryTreeResponse.From).ToList();
         if (isTree)
         {
             var nodes = items.ToDictionary(category => category.Id);
-            var roots = new List<CategoryTreeDto>();
+            var roots = new List<CategoryTreeResponse>();
             foreach (var category in items)
             {
                 if (category.ParentId is Guid parentId && nodes.TryGetValue(parentId, out var parent))
@@ -30,22 +32,22 @@ public sealed class CatalogService(CatalogDbContext db)
             }
             items = roots;
         }
-        return PagedResult<CategoryTreeDto>.Create(items, 1, Math.Max(100, items.Count), items.Count);
+        return PagedResult<CategoryTreeResponse>.Create(items, 1, Math.Max(100, items.Count), items.Count);
     }
 
-    public async Task<Result<CategoryDetailsDto>> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken)
+    public async Task<Result<CategoryDetailsResponse>> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken)
     {
         var category = await db.Categories.AsNoTracking().SingleOrDefaultAsync(category => category.Id == categoryId, cancellationToken);
         if (category is null) return CategoryNotFound();
         var skills = await db.Skills.AsNoTracking().Where(skill => skill.CategoryId == categoryId)
             .OrderBy(skill => skill.Name).ThenBy(skill => skill.Id)
-            .Select(skill => new NamedItemDto(skill.Id, skill.Name, skill.Slug)).ToListAsync(cancellationToken);
-        return new CategoryDetailsDto(category.Id, category.Name, category.Slug, category.Description, category.ParentId,
+            .Select(skill => new NamedItemResponse(skill.Id, skill.Name, skill.Slug)).ToListAsync(cancellationToken);
+        return new CategoryDetailsResponse(category.Id, category.Name, category.Slug, category.Description, category.ParentId,
             category.IconUrl, category.SortOrder, category.IsActive, category.CreatedAtUtc, skills);
     }
 
-    public Task<Result<CategoryDto>> CreateCategoryAsync(CreateCategoryRequest request, CancellationToken cancellationToken) =>
-        WriteAsync<CategoryDto>(async () =>
+    public Task<Result<CategoryResponse>> CreateCategoryAsync(CreateCategoryRequest request, CancellationToken cancellationToken) =>
+        WriteAsync<CategoryResponse>(async () =>
         {
             var created = Category.Create(request.Name, request.Description, request.ParentId, request.IconUrl, request.SortOrder);
             if (created.IsFailure) return created.Error;
@@ -55,7 +57,7 @@ public sealed class CatalogService(CatalogDbContext db)
             if (await db.Categories.IgnoreQueryFilters().AnyAsync(existing => existing.Slug == category.Slug, cancellationToken))
                 return DuplicateSlug();
             db.Categories.Add(category);
-            return CategoryDto.From(category);
+            return CategoryResponse.From(category);
         }, cancellationToken);
 
     public Task<Result<bool>> UpdateCategoryAsync(Guid categoryId, UpdateCategoryRequest request, CancellationToken cancellationToken) =>
@@ -84,7 +86,7 @@ public sealed class CatalogService(CatalogDbContext db)
             return true;
         }, cancellationToken);
 
-    public async Task<Result<PagedResult<SkillDto>>> GetSkillsAsync(Guid? categoryId, string? search, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<SkillResponse>>> GetSkillsAsync(Guid? categoryId, string? search, int page, int pageSize, CancellationToken cancellationToken)
     {
         var offset = CatalogPagination.Offset(page, pageSize);
         if (offset.IsFailure) return offset.Error;
@@ -104,21 +106,21 @@ public sealed class CatalogService(CatalogDbContext db)
         var total = await query.LongCountAsync(cancellationToken);
         var skills = await query.OrderBy(skill => skill.Name).ThenBy(skill => skill.Id)
             .Skip(offset.Value).Take(pageSize).ToListAsync(cancellationToken);
-        return PagedResult<SkillDto>.Create(skills.Select(SkillDto.From).ToList(), page, pageSize, total);
+        return PagedResult<SkillResponse>.Create(skills.Select(SkillResponse.From).ToList(), page, pageSize, total);
     }
 
-    public async Task<Result<SkillDetailsDto>> GetSkillAsync(Guid skillId, CancellationToken cancellationToken)
+    public async Task<Result<SkillDetailsResponse>> GetSkillAsync(Guid skillId, CancellationToken cancellationToken)
     {
         var skill = await db.Skills.AsNoTracking().Include(skill => skill.Tags)
             .SingleOrDefaultAsync(skill => skill.Id == skillId, cancellationToken);
         if (skill is null) return SkillNotFound();
-        return new SkillDetailsDto(skill.Id, skill.CategoryId, skill.Name, skill.Slug, skill.Description,
+        return new SkillDetailsResponse(skill.Id, skill.CategoryId, skill.Name, skill.Slug, skill.Description,
             skill.IsActive, skill.CreatedAtUtc, skill.Tags.OrderBy(tag => tag.Name).ThenBy(tag => tag.Id)
-                .Select(tag => new NamedItemDto(tag.Id, tag.Name, tag.Slug)).ToList());
+                .Select(tag => new NamedItemResponse(tag.Id, tag.Name, tag.Slug)).ToList());
     }
 
-    public Task<Result<SkillDto>> CreateSkillAsync(CreateSkillRequest request, CancellationToken cancellationToken) =>
-        WriteAsync<SkillDto>(async () =>
+    public Task<Result<SkillResponse>> CreateSkillAsync(CreateSkillRequest request, CancellationToken cancellationToken) =>
+        WriteAsync<SkillResponse>(async () =>
         {
             var tags = await ValidateSkillReferencesAsync(request.CategoryId, request.TagIds, cancellationToken);
             if (tags.IsFailure) return tags.Error;
@@ -136,7 +138,7 @@ public sealed class CatalogService(CatalogDbContext db)
                 Content = JsonSerializer.Serialize(integrationEvent),
                 OccurredOnUtc = integrationEvent.OccurredOnUtc
             });
-            return SkillDto.From(skill);
+            return SkillResponse.From(skill);
         }, cancellationToken);
 
     public Task<Result<bool>> UpdateSkillAsync(Guid skillId, UpdateSkillRequest request, CancellationToken cancellationToken) =>
@@ -153,22 +155,22 @@ public sealed class CatalogService(CatalogDbContext db)
             return true;
         }, cancellationToken);
 
-    public async Task<PagedResult<NamedItemDto>> GetTagsAsync(CancellationToken cancellationToken)
+    public async Task<PagedResult<NamedItemResponse>> GetTagsAsync(CancellationToken cancellationToken)
     {
         var tags = await db.Tags.AsNoTracking().OrderBy(tag => tag.Name).ThenBy(tag => tag.Id)
-            .Select(tag => new NamedItemDto(tag.Id, tag.Name, tag.Slug)).ToListAsync(cancellationToken);
-        return PagedResult<NamedItemDto>.Create(tags, 1, Math.Max(50, tags.Count), tags.Count);
+            .Select(tag => new NamedItemResponse(tag.Id, tag.Name, tag.Slug)).ToListAsync(cancellationToken);
+        return PagedResult<NamedItemResponse>.Create(tags, 1, Math.Max(50, tags.Count), tags.Count);
     }
 
-    public Task<Result<NamedItemDto>> CreateTagAsync(CreateTagRequest request, CancellationToken cancellationToken) =>
-        WriteAsync<NamedItemDto>(async () =>
+    public Task<Result<NamedItemResponse>> CreateTagAsync(CreateTagRequest request, CancellationToken cancellationToken) =>
+        WriteAsync<NamedItemResponse>(async () =>
         {
             var created = Tag.Create(request.Name);
             if (created.IsFailure) return created.Error;
             var tag = created.Value;
             if (await db.Tags.AnyAsync(existing => existing.Slug == tag.Slug, cancellationToken)) return DuplicateSlug();
             db.Tags.Add(tag);
-            return new NamedItemDto(tag.Id, tag.Name, tag.Slug);
+            return new NamedItemResponse(tag.Id, tag.Name, tag.Slug);
         }, cancellationToken);
 
     private async Task<Error> ValidateParentAsync(Guid categoryId, Guid? parentId, CancellationToken cancellationToken)

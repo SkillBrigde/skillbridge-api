@@ -2,6 +2,8 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
+using SkillBridge.Modules.Catalog.Application.DTOs.Responses;
 using SkillBridge.Modules.Catalog.Domain;
 using SkillBridge.Modules.Catalog.Infrastructure;
 
@@ -10,7 +12,7 @@ namespace SkillBridge.Modules.Catalog.Application;
 public sealed class MentorServices(CatalogDbContext db, IMentorDirectory mentors,
     IValidator<MentorServiceRequest> validator, TimeProvider clock)
 {
-    public async Task<Result<PagedResult<MentorServiceDto>>> ListAsync(Guid? mentorId, Guid? ownerUserId,
+    public async Task<Result<PagedResult<MentorServiceResponse>>> ListAsync(Guid? mentorId, Guid? ownerUserId,
         string? type, bool? active, int page, int pageSize, CancellationToken ct)
     {
         var offset = CatalogPagination.Offset(page, pageSize);
@@ -26,13 +28,13 @@ public sealed class MentorServices(CatalogDbContext db, IMentorDirectory mentors
         var count = await query.LongCountAsync(ct);
         var items = await query.OrderByDescending(x => x.CreatedAtUtc).ThenBy(x => x.Id)
             .Skip(offset.Value).Take(pageSize).ToListAsync(ct);
-        return PagedResult<MentorServiceDto>.Create(items.Select(MentorServiceDto.From).ToList(), page, pageSize, count);
+        return PagedResult<MentorServiceResponse>.Create(items.Select(MentorServiceResponse.From).ToList(), page, pageSize, count);
     }
 
-    public async Task<Result<MentorServiceDto>> GetAsync(Guid id, CancellationToken ct)
+    public async Task<Result<MentorServiceResponse>> GetAsync(Guid id, CancellationToken ct)
     {
         var service = await db.MentorServices.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.IsActive, ct);
-        return service is null ? MentorServiceErrors.Missing : MentorServiceDto.From(service);
+        return service is null ? MentorServiceErrors.Missing : MentorServiceResponse.From(service);
     }
 
     // Only trusted composition adapters use this DTO; the public API never returns the owner user ID.
@@ -44,7 +46,7 @@ public sealed class MentorServices(CatalogDbContext db, IMentorDirectory mentors
             service.Deliverables, service.Price, service.Currency, service.DurationMinutes, service.TotalSessions, clock.GetUtcNow());
     }
 
-    public async Task<Result<MentorServiceDto>> CreateAsync(Guid owner, MentorServiceRequest request, CancellationToken ct)
+    public async Task<Result<MentorServiceResponse>> CreateAsync(Guid owner, MentorServiceRequest request, CancellationToken ct)
     {
         var validation = await ValidateAsync(request, ct);
         if (validation != Error.None) return validation;
@@ -56,10 +58,10 @@ public sealed class MentorServices(CatalogDbContext db, IMentorDirectory mentors
         if (created.IsFailure) return created.Error;
         db.MentorServices.Add(created.Value);
         await db.SaveChangesAsync(ct);
-        return MentorServiceDto.From(created.Value);
+        return MentorServiceResponse.From(created.Value);
     }
 
-    public async Task<Result<MentorServiceDto>> UpdateAsync(Guid owner, Guid id, long version, MentorServiceRequest request, CancellationToken ct)
+    public async Task<Result<MentorServiceResponse>> UpdateAsync(Guid owner, Guid id, long version, MentorServiceRequest request, CancellationToken ct)
     {
         var service = await db.MentorServices.SingleOrDefaultAsync(x => x.Id == id && x.MentorUserId == owner, ct);
         if (service is null) return MentorServiceErrors.Missing;
@@ -71,7 +73,7 @@ public sealed class MentorServices(CatalogDbContext db, IMentorDirectory mentors
         if (updated.IsFailure) return updated.Error;
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return MentorServiceErrors.Version; }
-        return MentorServiceDto.From(service);
+        return MentorServiceResponse.From(service);
     }
 
     public async Task<Result> DeleteAsync(Guid owner, Guid id, long version, CancellationToken ct)

@@ -1,17 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Profiles.Application.DTOs;
+using SkillBridge.Modules.Profiles.Application.DTOs.Responses;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
 namespace SkillBridge.Modules.Profiles.Application.Mentors;
 
-public sealed record GetMentorProfileQuery(Guid UserId) : IQuery<MentorProfileDto>;
+public sealed record GetMentorProfileQuery(Guid UserId) : IQuery<MentorProfileResponse>;
 
 public sealed class GetMentorProfileQueryHandler(ProfilesDbContext dbContext)
-    : IQueryHandler<GetMentorProfileQuery, MentorProfileDto>
+    : IQueryHandler<GetMentorProfileQuery, MentorProfileResponse>
 {
-    public async Task<Result<MentorProfileDto>> Handle(GetMentorProfileQuery request, CancellationToken cancellationToken)
+    public async Task<Result<MentorProfileResponse>> Handle(GetMentorProfileQuery request, CancellationToken cancellationToken)
     {
         var profile = await dbContext.MentorProfiles
             .AsNoTracking()
@@ -22,6 +22,6 @@ public sealed class GetMentorProfileQueryHandler(ProfilesDbContext dbContext)
             return Error.NotFound("Profiles.MentorProfileNotFound", "Chưa có hồ sơ Mentor cho người dùng hiện tại.");
         }
 
-        return await MentorProfileDtoLoader.LoadAsync(dbContext, profile, cancellationToken);
+        return await MentorProfileResponseLoader.LoadAsync(dbContext, profile, cancellationToken);
     }
 }

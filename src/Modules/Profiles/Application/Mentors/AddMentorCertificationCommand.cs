@@ -2,7 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Profiles.Application.DTOs;
+using SkillBridge.Modules.Profiles.Application.DTOs.Responses;
 using SkillBridge.Modules.Profiles.Domain;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -15,7 +15,7 @@ public sealed record AddMentorCertificationCommand(
     DateTimeOffset IssueDate,
     DateTimeOffset? ExpiryDate,
     string? CredentialUrl,
-    string? CredentialId) : ICommand<MentorCertificationDto>;
+    string? CredentialId) : ICommand<MentorCertificationResponse>;
 
 public sealed class AddMentorCertificationCommandValidator : AbstractValidator<AddMentorCertificationCommand>
 {
@@ -46,9 +46,9 @@ public sealed class AddMentorCertificationCommandValidator : AbstractValidator<A
 }
 
 public sealed class AddMentorCertificationCommandHandler(ProfilesDbContext dbContext)
-    : ICommandHandler<AddMentorCertificationCommand, MentorCertificationDto>
+    : ICommandHandler<AddMentorCertificationCommand, MentorCertificationResponse>
 {
-    public async Task<Result<MentorCertificationDto>> Handle(
+    public async Task<Result<MentorCertificationResponse>> Handle(
         AddMentorCertificationCommand request,
         CancellationToken cancellationToken)
     {
@@ -78,6 +78,6 @@ public sealed class AddMentorCertificationCommandHandler(ProfilesDbContext dbCon
 
         dbContext.MentorCertifications.Add(created.Value);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return MentorCertificationDto.From(created.Value);
+        return MentorCertificationResponse.From(created.Value);
     }
 }

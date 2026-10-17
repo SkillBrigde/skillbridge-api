@@ -3,12 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.Modules.Scheduling.Application.DTOs.Responses;
 using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Modules.Scheduling.Application;
 
 public sealed record GetAvailabilityRulesQuery(Guid UserId, int Page = 1, int PageSize = 100)
-    : IQuery<PagedResult<AvailabilityRuleDto>>;
+    : IQuery<PagedResult<AvailabilityRuleResponse>>;
 
 public sealed class GetAvailabilityRulesQueryValidator : AbstractValidator<GetAvailabilityRulesQuery>
 {
@@ -26,9 +27,9 @@ public sealed class GetAvailabilityRulesQueryValidator : AbstractValidator<GetAv
 
 public sealed class GetAvailabilityRulesQueryHandler(
     SchedulingDbContext dbContext,
-    IMentorDirectory mentorDirectory) : IQueryHandler<GetAvailabilityRulesQuery, PagedResult<AvailabilityRuleDto>>
+    IMentorDirectory mentorDirectory) : IQueryHandler<GetAvailabilityRulesQuery, PagedResult<AvailabilityRuleResponse>>
 {
-    public async Task<Result<PagedResult<AvailabilityRuleDto>>> Handle(
+    public async Task<Result<PagedResult<AvailabilityRuleResponse>>> Handle(
         GetAvailabilityRulesQuery request,
         CancellationToken cancellationToken)
     {
@@ -44,10 +45,10 @@ public sealed class GetAvailabilityRulesQueryHandler(
         var items = await query.OrderBy(rule => rule.DayOfWeek)
             .ThenBy(rule => rule.StartTime).ThenBy(rule => rule.Id)
             .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
-            .Select(rule => new AvailabilityRuleDto(
+            .Select(rule => new AvailabilityRuleResponse(
                 rule.Id, rule.MentorId, rule.DayOfWeek, rule.StartTime, rule.EndTime, rule.IsActive))
             .ToListAsync(cancellationToken);
 
-        return PagedResult<AvailabilityRuleDto>.Create(items, request.Page, request.PageSize, totalCount);
+        return PagedResult<AvailabilityRuleResponse>.Create(items, request.Page, request.PageSize, totalCount);
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Profiles.Application.DTOs.Requests;
 using SkillBridge.Modules.Profiles.Application.Mentors;
 
 namespace SkillBridge.Modules.Profiles.Endpoints;
@@ -46,12 +47,3 @@ public static class AddMentorExperienceEndpoint
         }).WithName("AddCurrentMentorExperience");
     }
 }
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record MentorExperienceRequest(
-    string Company,
-    string Position,
-    DateTimeOffset StartDate,
-    DateTimeOffset? EndDate,
-    string? Description,
-    bool IsCurrent);

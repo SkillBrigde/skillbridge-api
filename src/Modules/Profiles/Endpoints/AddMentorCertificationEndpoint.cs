@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Profiles.Application.DTOs.Requests;
 using SkillBridge.Modules.Profiles.Application.Mentors;
 
 namespace SkillBridge.Modules.Profiles.Endpoints;
@@ -46,12 +47,3 @@ public static class AddMentorCertificationEndpoint
         }).WithName("AddCurrentMentorCertification");
     }
 }
-
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record MentorCertificationRequest(
-    string Name,
-    string IssuingOrganization,
-    DateTimeOffset IssueDate,
-    DateTimeOffset? ExpiryDate,
-    string? CredentialUrl,
-    string? CredentialId);

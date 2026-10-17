@@ -2,7 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Profiles.Application.DTOs;
+using SkillBridge.Modules.Profiles.Application.DTOs.Responses;
 using SkillBridge.Modules.Profiles.Domain;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -15,7 +15,7 @@ public sealed record AddMentorExperienceCommand(
     DateTimeOffset StartDate,
     DateTimeOffset? EndDate,
     string? Description,
-    bool IsCurrent) : ICommand<MentorExperienceDto>;
+    bool IsCurrent) : ICommand<MentorExperienceResponse>;
 
 public sealed class AddMentorExperienceCommandValidator : AbstractValidator<AddMentorExperienceCommand>
 {
@@ -44,9 +44,9 @@ public sealed class AddMentorExperienceCommandValidator : AbstractValidator<AddM
 }
 
 public sealed class AddMentorExperienceCommandHandler(ProfilesDbContext dbContext)
-    : ICommandHandler<AddMentorExperienceCommand, MentorExperienceDto>
+    : ICommandHandler<AddMentorExperienceCommand, MentorExperienceResponse>
 {
-    public async Task<Result<MentorExperienceDto>> Handle(
+    public async Task<Result<MentorExperienceResponse>> Handle(
         AddMentorExperienceCommand request,
         CancellationToken cancellationToken)
     {
@@ -76,6 +76,6 @@ public sealed class AddMentorExperienceCommandHandler(ProfilesDbContext dbContex
 
         dbContext.MentorExperiences.Add(created.Value);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return MentorExperienceDto.From(created.Value);
+        return MentorExperienceResponse.From(created.Value);
     }
 }

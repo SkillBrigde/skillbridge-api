@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.Modules.Profiles.Application.DTOs;
+using SkillBridge.Modules.Profiles.Application.DTOs.Responses;
 using SkillBridge.Modules.Profiles.Domain;
 using SkillBridge.Modules.Profiles.Infrastructure;
 
@@ -19,7 +19,7 @@ public sealed record SearchPublicMentorsQuery(
     string SortBy,
     bool SortDesc,
     int Page,
-    int PageSize) : IQuery<PagedResult<MentorProfileSummaryDto>>;
+    int PageSize) : IQuery<PagedResult<MentorProfileSummaryResponse>>;
 
 public sealed class SearchPublicMentorsQueryValidator : AbstractValidator<SearchPublicMentorsQuery>
 {
@@ -60,9 +60,9 @@ public sealed class SearchPublicMentorsQueryValidator : AbstractValidator<Search
 }
 
 public sealed class SearchPublicMentorsQueryHandler(ProfilesDbContext dbContext)
-    : IQueryHandler<SearchPublicMentorsQuery, PagedResult<MentorProfileSummaryDto>>
+    : IQueryHandler<SearchPublicMentorsQuery, PagedResult<MentorProfileSummaryResponse>>
 {
-    public async Task<Result<PagedResult<MentorProfileSummaryDto>>> Handle(
+    public async Task<Result<PagedResult<MentorProfileSummaryResponse>>> Handle(
         SearchPublicMentorsQuery request,
         CancellationToken cancellationToken)
     {
@@ -115,7 +115,7 @@ public sealed class SearchPublicMentorsQueryHandler(ProfilesDbContext dbContext)
         var items = await ordered
             .Skip(offset)
             .Take(request.PageSize)
-            .Select(profile => new MentorProfileSummaryDto(
+            .Select(profile => new MentorProfileSummaryResponse(
                 profile.Id,
                 profile.Headline,
                 profile.HourlyRate,
@@ -126,7 +126,7 @@ public sealed class SearchPublicMentorsQueryHandler(ProfilesDbContext dbContext)
                 profile.AvatarUrl))
             .ToListAsync(cancellationToken);
 
-        return PagedResult<MentorProfileSummaryDto>.Create(items, request.Page, request.PageSize, totalCount);
+        return PagedResult<MentorProfileSummaryResponse>.Create(items, request.Page, request.PageSize, totalCount);
     }
 
     private static IOrderedQueryable<MentorProfile> Order(

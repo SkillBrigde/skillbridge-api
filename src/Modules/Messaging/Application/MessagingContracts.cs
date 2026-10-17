@@ -1,4 +1,6 @@
 using FluentValidation;
+using SkillBridge.Modules.Messaging.Application.DTOs.Requests;
+using SkillBridge.Modules.Messaging.Application.DTOs.Responses;
 using SkillBridge.Modules.Messaging.Domain;
 
 namespace SkillBridge.Modules.Messaging.Application;
@@ -14,21 +16,7 @@ public interface IMessageNotifier
     Task PublishAsync(IReadOnlyCollection<Guid> recipients, string eventName, object?[] arguments, CancellationToken cancellationToken);
 }
 
-public sealed record CreateConversationRequest(Guid TargetUserId);
-public sealed record SendMessageRequest(string? Content, string? Type = "Text");
-public sealed record EditMessageRequest(string? Content);
-public sealed record MarkReadRequest(Guid MessageId);
-public sealed record ConversationDto(Guid Id, Guid ParticipantId, string? LastMessagePreview,
-    DateTimeOffset? LastMessageAtUtc, int UnreadCount);
-public sealed record ConversationResult(ConversationDto Conversation, bool Created);
-public sealed record MessagePage(IReadOnlyList<MessageDto> Items, string? NextCursor);
-public sealed record MessageDto(Guid Id, Guid ConversationId, Guid SenderId, long Sequence, string Content,
-    string Type, bool IsEdited, bool IsDeleted, DateTimeOffset? EditedAtUtc, DateTimeOffset CreatedAtUtc)
-{
-    public static MessageDto From(Message message) => new(message.Id, message.ConversationId, message.SenderId,
-        message.Sequence, message.Content, message.Type, message.IsEdited, message.IsDeleted, message.EditedAtUtc, message.CreatedAtUtc);
-}
-
+public sealed record ConversationResult(ConversationResponse Conversation, bool Created);
 public sealed class CreateConversationValidator : AbstractValidator<CreateConversationRequest>
 {
     public CreateConversationValidator() => RuleFor(request => request.TargetUserId).NotEmpty();

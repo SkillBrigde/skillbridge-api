@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.Modules.Catalog.Application;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
 
 namespace SkillBridge.Modules.Catalog.Endpoints;
 
