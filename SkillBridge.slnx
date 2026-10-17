@@ -1,24 +1,36 @@
 <Solution>
   <Folder Name="/src/" />
-  <Folder Name="/src/Bootstrapper/">
-    <Project Path="src/Bootstrapper/SkillBridge.Api/SkillBridge.Api.csproj" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/SkillBridge.Api.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
-    <Project Path="src/BuildingBlocks/SkillBridge.BuildingBlocks/SkillBridge.BuildingBlocks.csproj" />
+    <Project Path="src/BuildingBlocks/SkillBridge.BuildingBlocks.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
-    <Project Path="src/Modules/Booking/SkillBridge.Modules.Booking/SkillBridge.Modules.Booking.csproj" />
-    <Project Path="src/Modules/Catalog/SkillBridge.Modules.Catalog/SkillBridge.Modules.Catalog.csproj" />
-    <Project Path="src/Modules/Identity/SkillBridge.Modules.Identity/SkillBridge.Modules.Identity.csproj" />
-    <Project Path="src/Modules/Learning/SkillBridge.Modules.Learning/SkillBridge.Modules.Learning.csproj" />
-    <Project Path="src/Modules/Messaging/SkillBridge.Modules.Messaging/SkillBridge.Modules.Messaging.csproj" />
-    <Project Path="src/Modules/Payments/SkillBridge.Modules.Payments/SkillBridge.Modules.Payments.csproj" />
-    <Project Path="src/Modules/Profiles/SkillBridge.Modules.Profiles/SkillBridge.Modules.Profiles.csproj" />
-    <Project Path="src/Modules/Recommendations/SkillBridge.Modules.Recommendations/SkillBridge.Modules.Recommendations.csproj" />
-    <Project Path="src/Modules/Reviews/SkillBridge.Modules.Reviews/SkillBridge.Modules.Reviews.csproj" />
-    <Project Path="src/Modules/Scheduling/SkillBridge.Modules.Scheduling/SkillBridge.Modules.Scheduling.csproj" />
+    <Project
+      Path="src/Modules/Booking/SkillBridge.Modules.Booking.csproj" />
+    <Project
+      Path="src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj" />
+    <Project
+      Path="src/Modules/Identity/SkillBridge.Modules.Identity.csproj" />
+    <Project
+      Path="src/Modules/Learning/SkillBridge.Modules.Learning.csproj" />
+    <Project
+      Path="src/Modules/Messaging/SkillBridge.Modules.Messaging.csproj" />
+    <Project
+      Path="src/Modules/Payments/SkillBridge.Modules.Payments.csproj" />
+    <Project
+      Path="src/Modules/Profiles/SkillBridge.Modules.Profiles.csproj" />
+    <Project
+      Path="src/Modules/Recommendations/SkillBridge.Modules.Recommendations.csproj" />
+    <Project
+      Path="src/Modules/Reviews/SkillBridge.Modules.Reviews.csproj" />
+    <Project
+      Path="src/Modules/Scheduling/SkillBridge.Modules.Scheduling.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj" />
+    <Project Path="tests/IntegrationTests/SkillBridge.IntegrationTests.csproj" />
     <Project Path="tests/SkillBridge.Checks/SkillBridge.Checks.csproj" />
   </Folder>
 </Solution>

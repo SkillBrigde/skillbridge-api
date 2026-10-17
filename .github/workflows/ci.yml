@@ -45,10 +45,5 @@ jobs:
       - name: Verify formatting
         run: dotnet format SkillBridge.slnx --verify-no-changes --no-restore
 
-      - name: Check logic and architecture
-        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build
-
-      - name: Check PostgreSQL and HTTP flows
-        env:
-          SKILLBRIDGE_TEST_DATABASE: Host=localhost;Port=5432;Database=postgres;Username=skillbridge_checks;Password=skillbridge_checks
-        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build -- --database
+      - name: Test
+        run: dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore

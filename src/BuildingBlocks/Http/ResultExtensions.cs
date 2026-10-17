@@ -1,0 +1,42 @@
+using Microsoft.AspNetCore.Http;
+using SkillBridge.BuildingBlocks.Results;
+
+namespace SkillBridge.BuildingBlocks.Http;
+
+public static class ResultExtensions
+{
+    public static IResult ToProblemDetails(this Error error)
+    {
+        var statusCode = error.Type switch
+        {
+            ErrorType.Validation => StatusCodes.Status400BadRequest,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        return Microsoft.AspNetCore.Http.Results.Problem(
+            statusCode: statusCode,
+            title: error.Code,
+            detail: error.Description,
+            extensions: error is ValidationError validation
+                ? new Dictionary<string, object?> { ["errors"] = validation.Errors }
+                : null);
+    }
+
+    public static IResult ToHttpResult(this Result result)
+    {
+        return result.IsSuccess
+            ? Microsoft.AspNetCore.Http.Results.Ok()
+            : result.Error.ToProblemDetails();
+    }
+
+    public static IResult ToHttpResult<TValue>(this Result<TValue> result)
+    {
+        return result.IsSuccess
+            ? Microsoft.AspNetCore.Http.Results.Ok(result.Value)
+            : result.Error.ToProblemDetails();
+    }
+}

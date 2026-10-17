@@ -13,18 +13,18 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
-using SkillBridge.Api.Common;
 using SkillBridge.Api.Middleware;
+using SkillBridge.Api.Security;
+using SkillBridge.BuildingBlocks;
 using SkillBridge.BuildingBlocks.Events;
-using SkillBridge.BuildingBlocks.Extensions;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Catalog;
 using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
-using SkillBridge.Modules.Identity.Application.Commands.Login;
-using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
+using SkillBridge.Modules.Identity.Application.Auth.Login;
+using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
 using SkillBridge.Modules.Identity.Domain;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 
 namespace SkillBridge.Checks;
 
@@ -75,7 +75,8 @@ internal static class DatabaseChecks
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
         builder.Services.AddBuildingBlocks(builder.Configuration, typeof(IdentityModule).Assembly, typeof(CatalogModule).Assembly);
-        builder.Services.AddJwtSecurity(builder.Configuration);
+        builder.Services.AddSecurityServices(builder.Configuration);
+        builder.Services.AddApiAuthentication();
         var identity = new IdentityModule();
         var catalog = new CatalogModule();
         identity.AddServices(builder.Services, builder.Configuration);

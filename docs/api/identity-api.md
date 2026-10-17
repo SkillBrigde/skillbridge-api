@@ -57,15 +57,15 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 **Request Body:**
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| email | string | Yes | Địa chỉ email |
-| password | string | Yes | Mật khẩu |
+|---|---|---|---|
+| email | string | Yes | Địa chỉ email người dùng |
+| password | string | Yes | Mật khẩu (theo quy tắc trên) |
 | fullName | string | Yes | Họ và tên |
-| role | string | Yes | Quyền (Mentor/Mentee) |
+| role | string | Yes | Vai trò (`Mentor` hoặc `Mentee`) |
 
 ```json
 {
-  "email": "nguyenvana@example.com",
+  "email": "user@example.com",
   "password": "Password123!",
   "fullName": "Nguyễn Văn A",
   "role": "Mentee"
@@ -73,45 +73,45 @@ Các lỗi trả về sẽ tuân theo định dạng chuẩn RFC 7807 ProblemDet
 ```
 
 **Responses:**
-- `201 Created`: Thành công.
+- `201 Created`: Đăng ký thành công.
   ```json
   {
-    "id": "e3b0c442-989b-464c-86c3-12d3a4564266"
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
   ```
-- `400 Bad Request`: Lỗi validation (sai định dạng email, mật khẩu yếu,...).
-- `409 Conflict`: Email đã tồn tại.
+- `400 Bad Request`: Lỗi validation dữ liệu.
+- `409 Conflict`: Email đã tồn tại trong hệ thống.
 
 ---
 
-### 2. Đăng nhập (Login)
+### 2. Đăng nhập bằng Email/Password (Login)
 
 - **Method**: `POST`
 - **URL**: `/api/v1/identity/auth/login`
-- **Description**: Xác thực người dùng, trả về Access Token trong body và Refresh Token trong cookie.
+- **Description**: Xác thực bằng Email và Password. Khi đăng nhập thành công:
+  - Trả về `accessToken` dạng JSON cho Client lưu vào memory.
+  - Thiết lập HTTP-Only Cookie chứa `refreshToken` (thời hạn 7 ngày).
 - **Auth Requirement**: `Anonymous`
 
 **Business Rules:**
-- Access Token (JWT Bearer): Thời gian sống 15 phút.
-- Refresh Token: Thời gian sống 7 ngày, lưu vào HttpOnly Secure SameSite cookie. Hỗ trợ rotation.
-- Lockout: Sau 5 lần đăng nhập sai liên tiếp, khóa tài khoản 15 phút.
+- Nhập sai mật khẩu liên tiếp 5 lần sẽ kích hoạt cơ chế Lockout tạm thời (15 phút).
 
 **Request Body:**
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| email | string | Yes | Địa chỉ email |
+|---|---|---|---|
+| email | string | Yes | Email đã đăng ký |
 | password | string | Yes | Mật khẩu |
 
 ```json
 {
-  "email": "nguyenvana@example.com",
+  "email": "user@example.com",
   "password": "Password123!"
 }
 ```
 
 **Responses:**
-- `200 OK`: Thành công.
+- `200 OK`: Đăng nhập thành công.
   - **Headers**: `Set-Cookie: refreshToken={token}; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/identity/auth; Max-Age=604800`
   ```json
   {
