@@ -22,19 +22,23 @@ Mọi code bạn viết ra BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT các q
 ### 2. CẤU TRÚC 4 TẦNG NỘI BỘ MỖI MODULE:
 Bên trong `src/Modules/{ModuleName}/`:
 - `Domain/`: Entities, Value Objects, Domain Events (`IDomainEvent`), Domain Errors (`Error`).
-- `Application/`: CQRS Commands/Queries, DTOs, FluentValidation.
-- `Application/Commands/{UseCase}/` và `Application/Queries/{UseCase}/`: Yêu cầu xử lý nội bộ, handler và validator tương ứng.
-- `Application/DTOs/Requests/`: DTO `*Request` nhận HTTP body hoặc query parameters.
-- `Application/DTOs/Responses/`: DTO `*Response` chứa dữ liệu API trả về.
-- `Infrastructure/Data/`: `{ModuleName}DbContext` và `Configurations/` (`IEntityTypeConfiguration<T>`).
-- `Infrastructure/Migrations/`: Thư mục chứa EF Core migrations.
+- `Application/{Feature}/{UseCase}/{UseCase}.cs`: Command/Query nội bộ, handler và validator theo nhóm nghiệp vụ (Identity có `Auth`, `Users`); giữ tên kiểu như `LoginCommand`.
+- `Application/{Feature}/Requests/`: DTO `*Request` nhận HTTP body hoặc query parameters.
+- `Application/{Feature}/Responses/`: DTO `*Response` chứa dữ liệu API trả về.
+- `Infrastructure/Persistence/`: `{ModuleName}DbContext`, `Configurations/` (`IEntityTypeConfiguration<T>`) và `Migrations/`; giữ nguyên migration ID và schema khi di chuyển.
 - `Endpoints/`: Minimal APIs gom nhóm theo `/api/v1/{routePrefix}`.
 - `{ModuleName}Module.cs`: Kế thừa `ModuleDefinition`.
 
 Endpoint nhận Request DTO rồi ánh xạ sang Command/Query trước khi gọi MediatR; không bind trực tiếp Command/Query từ HTTP. Khi refactor phải giữ nguyên tên trường JSON, query parameters và giá trị mặc định. Dữ liệu phía server như IP đăng nhập thực tế phải lấy từ `HttpContext`, không sử dụng giá trị client gửi trong Request DTO.
 
+Chỉ tạo thư mục khi có code. CQRS, behaviors và integration events dùng chung nằm trong `src/BuildingBlocks/Messaging/{CQRS,Behaviors,Events}/`, namespace bắt đầu bằng `SkillBridge.BuildingBlocks.Messaging`. Kiểm thử ranh giới module nằm trong `tests/ArchitectureTests/`; kiểm thử endpoint/cấu hình bảo mật nằm trong `tests/IntegrationTests/`.
+
+Hợp đồng module nằm trong `BuildingBlocks/Modules`, interceptor EF trong `Persistence/Interceptors`, phân trang trong `Results/Pagination`, helper chuyển Result sang HTTP trong `Http`. API gom đăng ký dịch vụ/pipeline vào `Extensions`, host endpoints vào `Endpoints`, danh sách module vào `Modules/ModuleRegistry.cs`.
+
+Mọi project kế thừa cấu hình C# từ `Directory.Build.props`; phiên bản NuGet quản lý tại `Directory.Packages.props`. Không ghi `Version` trên `PackageReference` trong `.csproj`. JWT Bearer thuộc API; module dùng PostgreSQL tự reference Npgsql. Khi thêm module mới, reference project từ API và thêm instance vào `ModuleRegistry.Create()`.
+
 ### 3. QUY CHUẨN C# 13 & EF CORE 10:
-- Luôn dùng file-scoped namespace: `namespace SkillBridge.Modules.{ModuleName};`.
+- Luôn dùng file-scoped namespace với tiền tố `SkillBridge.Modules.{ModuleName}` và phần tiếp theo khớp thư mục, ví dụ `SkillBridge.Modules.Identity.Application.Auth.Login`.
 - Luôn dùng collection expressions: `[ ... ]` thay cho `new List<...>()`.
 - Luôn cấu hình bảng lịch sử migration riêng cho từng schema:
   `npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "{schema_name}")`.

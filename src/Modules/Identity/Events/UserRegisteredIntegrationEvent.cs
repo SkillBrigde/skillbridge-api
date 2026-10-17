@@ -1,4 +1,4 @@
-using SkillBridge.BuildingBlocks.Events;
+using SkillBridge.BuildingBlocks.Messaging.Events;
 
 namespace SkillBridge.Modules.Identity.Events;
 

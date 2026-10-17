@@ -1,6 +1,6 @@
 # Tài Liệu Thiết Kế Tổng Quan Hệ Thống (System Architecture Overview)
 
-Tài liệu này cung cấp bức tranh toàn cảnh về kiến trúc hệ thống, ranh giới nghiệp vụ (Bounded Contexts), quy chuẩn dữ liệu và luồng giao tiếp của nền tảng **SkillBridge** (Full-stack: Next.js 16 BFF + .NET 10 Modular Monolith + PostgreSQL 17 + Redis 7).  
+Tài liệu này cung cấp bức tranh toàn cảnh về kiến trúc hệ thống, ranh giới nghiệp vụ (Bounded Contexts), quy chuẩn dữ liệu và luồng giao tiếp của nền tảng **SkillBridge** (Full-stack: Next.js 16 BFF + .NET 10 Modular Monolith + PostgreSQL 17 + Redis 7).
 Mọi kỹ sư (Backend, Frontend, DevOps, QA) tham gia dự án cần nắm vững tài liệu này trước khi lập trình hoặc thiết kế tính năng mới.
 
 Tài liệu thiết kế chi tiết bản in Microsoft Word: 👉 [`SkillBridge_Master_System_Architecture_and_Design_v4.docx`](../../SkillBridge_Master_System_Architecture_and_Design_v4.docx)
@@ -9,7 +9,7 @@ Tài liệu thiết kế chi tiết bản in Microsoft Word: 👉 [`SkillBridge_
 
 ## 1. Tầm nhìn & Mô hình Nghiệp vụ (Trust Broker Marketplace)
 
-**SkillBridge** là một "Thị trường Niềm Tin" (Trust Broker Marketplace) kết nối giữa Chuyên gia công nghệ (Mentor) và Người học/Lập trình viên đang đi làm (Mentee).  
+**SkillBridge** là một "Thị trường Niềm Tin" (Trust Broker Marketplace) kết nối giữa Chuyên gia công nghệ (Mentor) và Người học/Lập trình viên đang đi làm (Mentee).
 Nền tảng vận hành theo 5 giai đoạn khép kín:
 1. **Khám phá (Discovery)**: Mentee tìm kiếm theo **Gói Kết Quả Cụ Thể (Productized Services)** như *Review CV Chuẩn ATS*, *Mock Interview 1-1*, *Lộ trình Backend*.
 2. **Khảo sát & Đặt lịch (Intake Form & Booking)**: Mentee bắt buộc điền **Intake Form 3 câu hỏi** và chọn khung giờ rảnh (Slot). Hệ thống kích hoạt **Khóa nguyên tử Redis 10 phút** (`SET slot:lock {id} EX 600 NX`) chống giữ chỗ dạo.
@@ -26,14 +26,14 @@ Nền tảng vận hành theo 5 giai đoạn khép kín:
 ```mermaid
 graph TB
     Browser["Trình Duyệt Client (React 19 / Next.js SPA)"]
-    
+
     subgraph BFF_Layer ["Tầng Edge & BFF (Next.js 16 Server)"]
         BFF["Next.js BFF Server<br/>• Quản lý Cookie __Host-session (HttpOnly, Secure)<br/>• Bắt tay Google OAuth2 1-Click<br/>• Zero-Token ở Browser chống XSS 100%"]
     end
 
     subgraph Core_API ["Tầng Nghiệp Vụ (.NET 10 Modular Monolith)"]
         Gateway["ASP.NET Core Engine<br/>• Rate Limiter (strict-auth, strict-otp, general)<br/>• JWT Bearer Auth & ICurrentUser<br/>• Bộ Lọc Chat Chống Gạ Gẫm Ngoài Sàn"]
-        
+
         subgraph Sub_Modules ["10 Bounded Contexts Độc Lập"]
             M1["1. Identity (Auth, JWT, RBAC)"]
             M2["2. Profiles (Hồ sơ, KYC CCCD)"]
@@ -86,16 +86,16 @@ flowchart TD
     CheckoutUI["Giao Diện Thanh Toán (Next.js)"] --> Factory["PaymentGatewayFactory"]
     Factory -.-> PayOsAdapter["PayOsPaymentGateway (VietQR Open Banking)"]
     Factory -.-> VnPayAdapter["VnPaySandboxPaymentGateway (Redirect Test Card)"]
-    
+
     PayOsAdapter --> PayOS["PayOS API (NAPAS 24/7)"]
     PayOS --> DevBank[("Tài Khoản Ngân Hàng Cá Nhân<br/>(Tiền Thật Bắn Về 1-2 Giây)")]
-    
+
     VnPayAdapter --> VNPay["VNPAY Sandbox Gateway"]
     VNPay --> FakeBank[("VNPAY Sandbox Ledger<br/>(Tiền Giả Lập Học Thuật)")]
-    
+
     PayOS -->|"Webhook HMAC-SHA256"| WebhookCtrl["Payments Webhook Controller"]
     VNPay -->|"IPN Webhook HMAC-SHA512"| WebhookCtrl
-    
+
     WebhookCtrl --> DB[("PostgreSQL 17: PaymentOrder PAID & Escrow HOLDING")]
     WebhookCtrl --> SignalR["SignalR Hub: Bắn sự kiện thành công"]
     SignalR --> CheckoutUI
@@ -123,24 +123,28 @@ src/Modules/{ModuleName}/
 │   ├── Events/                     <-- Domain Events nội bộ
 │   └── Errors/                     <-- Error codes nghiệp vụ
 │
-├── Application/                    <-- Tầng Ứng Dụng (CQRS MediatR)
-│   ├── Commands/                   <-- Use cases thay đổi dữ liệu
-│   ├── Queries/                    <-- Use cases truy vấn dữ liệu
-│   ├── Validators/                 <-- FluentValidation rules
-│   └── DTOs/                       <-- Request / Response DTOs
+├── Application/                    <-- Tầng Ứng Dụng, nhóm theo nghiệp vụ
+│   └── {Feature}/                  <-- Ví dụ Identity: Auth, Users
+│       ├── {UseCase}/{UseCase}.cs   <-- Command/Query, validator, handler
+│       ├── Requests/               <-- Hợp đồng đầu vào HTTP
+│       └── Responses/              <-- Hợp đồng dữ liệu API trả về
 │
 ├── Infrastructure/                 <-- Tầng Hạ Tầng
-│   ├── Data/
+│   ├── Persistence/
 │   │   ├── {Name}DbContext.cs      <-- EF Core DbContext, Schema riêng biệt
-│   │   └── Configurations/         <-- Fluent API mappings
-│   ├── Adapters/                   <-- Payment Gateway, Third-party clients
-│   └── Migrations/                 <-- EF Core Migrations
+│   │   ├── Configurations/         <-- Fluent API mappings
+│   │   └── Migrations/             <-- EF Core Migrations
+│   └── Adapters/                   <-- Khi có Payment Gateway, Third-party clients
 │
 ├── Endpoints/                      <-- Tầng Giao Tiếp (Minimal APIs)
 │   └── {Feature}Endpoints.cs       <-- Ánh xạ HTTP Routes vào MediatR Pipeline
 │
 └── {Name}Module.cs                 <-- Điểm đăng ký DI (Kế thừa ModuleDefinition)
 ```
+
+Chỉ tạo thư mục khi có mã nguồn tương ứng; các module khung chưa cần đủ cây thư mục. Các Request/Response vẫn tách riêng trong từng nhóm nghiệp vụ; xem [quy ước và luồng xử lý](setup-guide.md#bước-4-tạo-cấu-trúc-4-tầng-nội-bộ-trong-module). CQRS, pipeline behaviors và integration events dùng chung nằm trong `src/BuildingBlocks/Messaging/`.
+
+Quy ước được áp dụng cho cả 10 project module; danh sách hiện tại nằm trong `Api/Modules/ModuleRegistry.cs`. API tách service registration/pipeline và host endpoints; BuildingBlocks phân chia rõ Modules, Messaging, Domain, Results/Pagination, Http, Persistence và Security. Cấu hình build và phiên bản package dùng chung qua hai file `Directory.*.props`; xem [cấu trúc toàn backend](backend-structure.md) để đối chiếu mã nguồn hiện tại với thiết kế nghiệp vụ trong tài liệu này.
 
 ---
 

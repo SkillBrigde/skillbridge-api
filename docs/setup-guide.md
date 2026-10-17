@@ -26,7 +26,7 @@ Hệ thống được đóng gói triển khai dưới dạng **một tiến tr�
 graph TD
     Bootstrapper["src/Api<br/>(Host API, Middleware, HealthChecks, Scalar/OpenAPI, CurrentUser)"]
 
-    BB["src/BuildingBlocks<br/>(Contracts, CQRS, MediatR Behaviors, Events, Pagination, Auditing, Interceptors)"]
+    BB["src/BuildingBlocks<br/>(Modules, Messaging, Results, Http, Persistence, Security)"]
 
     ModIdentity["src/Modules/Identity<br/>(Schema: identity)"]
     ModCatalog["src/Modules/Catalog<br/>(Schema: catalog)"]
@@ -47,15 +47,17 @@ graph TD
 
 ### Các trụ cột Enterprise trong `BuildingBlocks`:
 
-1. **Contracts**: `IModule` và `ModuleDefinition` đóng gói trọn vẹn vòng đời và probe endpoint của từng module.
-2. **CQRS**: `ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler` tích hợp sẵn Railway `Result<T>`.
-3. **Behaviors**: `ValidationBehavior` (tự động chạy FluentValidation) và `LoggingBehavior` (đo lường hiệu năng).
+1. **Modules**: `IModule` và `ModuleDefinition` đóng gói trọn vẹn vòng đời và probe endpoint của từng module.
+2. **Messaging/CQRS**: `ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler` tích hợp sẵn Railway `Result<T>`.
+3. **Messaging/Behaviors**: `ValidationBehavior` (tự động chạy FluentValidation) và `LoggingBehavior` (đo lường hiệu năng).
 4. **Security**: `BuildingBlocks.Security` chứa `JwtSettings`, các hợp đồng và triển khai cấp JWT/hash mật khẩu, cùng `ICurrentUser`. `Api/Security` cấu hình JWT Bearer, phân quyền và triển khai `CurrentUser` đọc danh tính từ HTTP.
-5. **Auditing & Interceptors**: `AuditInterceptor` (tự động gán thời gian/người tạo/sửa, chuyển xóa mềm) và `DispatchDomainEventsInterceptor` (gom và phát domain events).
-6. **Events & Outbox**: `IIntegrationEvent`, `IEventBus`, `InMemoryEventBus`, `OutboxMessage` đảm bảo liên module không phụ thuộc trực tiếp.
-7. **Pagination**: `PaginationParams` và `PagedResult<T>` thống nhất định dạng JSON phân trang cho toàn hệ thống.
+5. **Persistence/Interceptors**: `AuditInterceptor` (gán thời gian/người tạo/sửa, chuyển xóa mềm) và `DispatchDomainEventsInterceptor` (gom và phát domain events).
+6. **Messaging/Events & Outbox**: Các hợp đồng integration event, event bus và kiểu dữ liệu outbox. DI hiện đăng ký `InMemoryEventBus`.
+7. **Results/Pagination và Http**: `PaginationParams` và `PagedResult<T>` thống nhất dữ liệu phân trang; `Http/ResultExtensions.cs` ánh xạ `Result` sang HTTP response.
 
-Trong `Program.cs`, đăng ký phần kỹ thuật dùng chung bằng `builder.Services.AddSecurityServices(builder.Configuration)`, sau đó đăng ký xác thực HTTP bằng `builder.Services.AddApiAuthentication()`. Phần API đăng ký `IHttpContextAccessor` và `ICurrentUser` với triển khai tại `src/Api/Security/CurrentUser.cs`.
+`Program.cs` lấy danh sách từ `ModuleRegistry.Create()` rồi gọi `AddApiServices(configuration, modules)`. Phương thức này ghép BuildingBlocks, `AddSecurityServices`, `AddApiAuthentication` và dịch vụ từng module. Danh sách 10 module nằm tại `src/Api/Modules/ModuleRegistry.cs`; xem [cấu trúc toàn backend](backend-structure.md).
+
+Tất cả project kế thừa cấu hình C# từ `Directory.Build.props`. Phiên bản NuGet nằm trong `Directory.Packages.props`; khi thêm dependency, khai báo `PackageReference` tại project sử dụng và không ghi `Version` trong `.csproj`. Module có persistence PostgreSQL tự thêm `<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />`.
 
 ### 3 Nguyên tắc bất biến (Golden Rules):
 
@@ -185,7 +187,7 @@ Khi ứng dụng chạy ở môi trường `Development`, bạn có thể truy c
   👉 `http://localhost:5000/openapi/v1.json`
 - 💓 **Health Checks**:
     - `http://localhost:5000/health/live`: Kiểm tra tiến trình ứng dụng có đang sống hay không.
-    - `http://localhost:5000/health/ready`: Kiểm tra độ sẵn sàng của hạ tầng (Database, RabbitMQ).
+    - `http://localhost:5000/health/ready`: Hiện chạy self-check đã đăng ký; chưa có kiểm tra kết nối Database/RabbitMQ.
 - 🔍 **Probe kiểm tra Module Identity**:
     - `http://localhost:5000/api/v1/identity/_module`: Kiểm tra trạng thái khả dụng của Module Identity.
     - `http://localhost:5000/api/v1/identity/users/me`: Test endpoint nghiệp vụ mẫu của User.
@@ -210,7 +212,7 @@ dotnet build SkillBridge.slnx --configuration Release --warnaserror
 dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
 ```
 
-Project kiểm thử nằm tại `tests/SkillBridge.Tests/SkillBridge.Tests.csproj`. CI cũng chạy bộ kiểm thử này sau bước build.
+Kiểm thử được chia thành `tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj` cho ranh giới module và `tests/IntegrationTests/SkillBridge.IntegrationTests.csproj` cho endpoint/cấu hình bảo mật. CI chạy cả hai project qua solution sau bước build.
 
 > [!WARNING]
 > Ba lệnh này cũng được chạy trong GitHub Actions; hãy xử lý lỗi trước khi tạo Pull Request.
@@ -257,25 +259,32 @@ dotnet sln SkillBridge.slnx add src/Modules/Catalog/SkillBridge.Modules.Catalog.
 
 ### Bước 4: Tạo cấu trúc 4 tầng nội bộ trong Module
 
-Tạo các thư mục:
+Cấu trúc khi module có mã nguồn tương ứng; chỉ tạo thư mục cần dùng, không tạo sẵn cây rỗng cho module khung:
 
 ```text
 src/Modules/Catalog/
 ├── Domain/          <-- Chứa Entities, Value Objects, Domain Events, Domain Errors
-├── Application/     <-- Chứa CQRS Commands, Queries, Validators, DTOs
-│   ├── Commands/    <-- Mỗi use case thay đổi dữ liệu có thư mục riêng
-│   ├── Queries/     <-- Mỗi use case truy vấn có thư mục riêng
-│   └── DTOs/
+├── Application/
+│   └── {Feature}/   <-- Nhóm nghiệp vụ
+│       ├── {UseCase}/{UseCase}.cs <-- Command/Query, validator và handler
 │       ├── Requests/  <-- Dữ liệu HTTP đầu vào: body hoặc query parameters
 │       └── Responses/ <-- Dữ liệu API trả về
-├── Infrastructure/  <-- Chứa CatalogDbContext (Schema: "catalog"), Repositories
+├── Infrastructure/
+│   └── Persistence/
+│       ├── CatalogDbContext.cs <-- Schema: "catalog"
+│       ├── Configurations/
+│       └── Migrations/
 ├── Endpoints/       <-- Chứa Minimal API endpoint mappings
 └── CatalogModule.cs <-- Định nghĩa Module kế thừa ModuleDefinition
 ```
 
-Endpoint nhận DTO `*Request`, ánh xạ sang Command/Query rồi gửi qua MediatR; không bind trực tiếp Command/Query từ HTTP. Command/Query biểu diễn yêu cầu xử lý nội bộ, còn DTO `*Response` biểu diễn dữ liệu trả về API. Validator và handler của use case tiếp tục nằm cùng nhóm Command/Query tương ứng.
+Application được nhóm theo nghiệp vụ, không chia thư mục theo loại Command/Query. Trong Identity, `Auth` gồm Login, Register, RefreshToken, Logout, ChangePassword; `Users` gồm GetUsers, GetCurrentUser, UpdateUserStatus. Mỗi use case có file cùng tên, ví dụ `Application/Auth/Login/Login.cs` giữ các kiểu `LoginCommand`, validator và handler. Requests/Responses nằm trong nhóm sử dụng chúng: `Auth/Requests`, `Auth/Responses`, `Users/Requests`, `Users/Responses`.
+
+Endpoint nhận DTO `*Request`, ánh xạ sang Command/Query rồi gửi qua MediatR; không bind trực tiếp Command/Query từ HTTP. Request là hợp đồng đầu vào HTTP, Command/Query là yêu cầu xử lý nội bộ, Response là hợp đồng dữ liệu trả về. Giữ nguyên tên các kiểu xử lý khi tổ chức lại file.
 
 Ví dụ trong Identity: `LoginRequest` → `LoginCommand` → `AuthResponse`; truy vấn danh sách dùng `GetUsersRequest` → `GetUsersQuery` → `UserResponse` trong kết quả phân trang. Khi ánh xạ, giữ nguyên tên trường JSON, query parameters (`page`, `pageSize`, `search`, `role`, `isActive`) và giá trị mặc định. IP đăng nhập thực tế lấy từ `HttpContext`; trường `IpAddress` cũ được giữ trong request để tương thích nhưng giá trị client gửi không được sử dụng.
+
+DbContext, cấu hình entity và migration nằm trong `Infrastructure/Persistence/`; di chuyển không thay migration ID, schema hoặc nội dung mapping. Bảo mật kỹ thuật dùng chung tiếp tục nằm trong `BuildingBlocks/Security`, xác thực HTTP trong `Api/Security`; chỉ thêm security riêng trong module khi có triển khai thực tế.
 
 ### Bước 5: Viết file định nghĩa Module `{ModuleName}Module.cs`
 
@@ -286,7 +295,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.BuildingBlocks.Modules;
 
 namespace SkillBridge.Modules.Catalog;
 
@@ -316,13 +325,8 @@ public sealed class CatalogModule : ModuleDefinition
     ```powershell
     dotnet add src/Api/SkillBridge.Api.csproj reference src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj
     ```
-2. Mở file [Program.cs](file:///d:/Projects/skillbridge-api/src/Api/Program.cs), thêm module mới vào danh sách `modules`:
-    ```csharp
-    List<IModule> modules = [
-        new IdentityModule(),
-        new CatalogModule() // <-- Module mới ở đây
-    ];
-    ```
+2. Thêm module mới vào danh sách trả về của `ModuleRegistry.Create()` tại [ModuleRegistry.cs](../src/Api/Modules/ModuleRegistry.cs). Danh sách 10 module hiện tại đã có sẵn; mỗi module chỉ thêm một lần. Host sẽ tự đăng ký services, map endpoints và gọi initialization trong Development qua các phương thức của `IModule`.
+3. Nếu module dùng EF Core/PostgreSQL, thêm `PackageReference` tới `Npgsql.EntityFrameworkCore.PostgreSQL` trong project module. Phiên bản đã được quản lý tập trung; không dựa vào package provider truyền qua BuildingBlocks.
 
 ---
 

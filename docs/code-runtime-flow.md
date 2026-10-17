@@ -16,6 +16,8 @@ sequenceDiagram
     participant CorrMid as CorrelationIdMiddleware.cs
     participant ExcMid as GlobalExceptionHandler.cs
     participant Route as Endpoint / Minimal API
+    participant Sender as MediatR
+    participant Handler as Application/Users/GetUsers/GetUsers.cs
     participant Module as IdentityModule.cs
     participant DbContext as IdentityDbContext.cs
     participant DB as PostgreSQL (Schema: identity)
@@ -27,17 +29,21 @@ sequenceDiagram
     Module->>DB: Apply pending migrations vào schema identity
 
     Note over Client,DB: GIAI ĐOẠN 2: XỬ LÝ HTTP REQUEST (Ví dụ: GET /api/v1/identity/users)
-    Client->>CorrMid: Gửi HTTP Request
+    Client->>ExcMid: Gửi HTTP Request
+    ExcMid->>CorrMid: Chuyển request vào pipeline
     Note over CorrMid: Kiểm tra/sinh X-Correlation-ID duy nhất
-    CorrMid->>ExcMid: Chuyển request sang Exception Handler
-    ExcMid->>Route: Chuyển request đến Minimal API Endpoint
-    Route->>DbContext: Query dbContext.Users.ToListAsync()
-    DbContext->>DB: SELECT * FROM identity.users
-    DB-->>DbContext: Trả về danh sách Users
-    DbContext-->>Route: Mapping DTO
-    Route-->>ExcMid: Trả về Results.Ok(data)
-    ExcMid-->>CorrMid: Đính kèm Correlation ID vào Response Header
-    CorrMid-->>Client: 200 OK + Header [X-Correlation-ID] + JSON Body
+    CorrMid->>Route: Qua CORS và xác thực/phân quyền
+    Route->>Sender: GetUsersRequest được ánh xạ thành GetUsersQuery
+    Sender->>Handler: Gọi handler qua pipeline behaviors
+    Handler->>DbContext: Lọc, đếm và phân trang Users
+    DbContext->>DB: Thực thi truy vấn identity.users
+    DB-->>DbContext: Trả về dữ liệu trang và tổng số
+    DbContext-->>Handler: Dữ liệu được ánh xạ thành UserResponse
+    Handler-->>Sender: Result chứa PagedResult của UserResponse
+    Sender-->>Route: Kết quả xử lý
+    Route-->>CorrMid: ToHttpResult()
+    CorrMid-->>ExcMid: Đính kèm X-Correlation-ID vào response
+    ExcMid-->>Client: 200 OK + Header [X-Correlation-ID] + JSON Body
 ```
 
 ---
@@ -59,7 +65,7 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
 
 - **Dòng code**: `var builder = WebApplication.CreateBuilder(args);`
     - ASP.NET Core tự động đọc toàn bộ cấu hình từ `appsettings.json`, `appsettings.Development.json` và các biến môi trường vừa được `DotEnv` nạp.
-- **Các dịch vụ toàn cục được nạp vào IoC Container**:
+- **Các dịch vụ toàn cục được nạp qua `AddApiServices` trong [ApiServiceCollectionExtensions.cs](../src/Api/Extensions/ApiServiceCollectionExtensions.cs)**:
     - `builder.Services.AddProblemDetails()`: Kích hoạt chuẩn RFC 7807 cho lỗi API.
     - `builder.Services.AddExceptionHandler<GlobalExceptionHandler>()`: Đăng ký bộ bắt ngoại lệ tập trung ([GlobalExceptionHandler.cs](file:///d:/Projects/skillbridge-api/src/Api/Middleware/GlobalExceptionHandler.cs)).
     - `builder.Services.AddOpenApi()`: Sinh tài liệu OpenAPI cho toàn bộ endpoint.
@@ -71,30 +77,11 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
 - **Dòng code**:
 
     ```csharp
-    // 1. Toàn bộ 10 Bounded Context Modules
-    List<IModule> modules = [
-        new IdentityModule(),
-        new ProfilesModule(),
-        new CatalogModule(),
-        new SchedulingModule(),
-        new BookingModule(),
-        new PaymentsModule(),
-        new LearningModule(),
-        new MessagingModule(),
-        new ReviewsModule(),
-        new RecommendationsModule()
-    ];
-
-    // 2. Đăng ký tập trung Enterprise BuildingBlocks
-    var moduleAssemblies = modules.Select(m => m.GetType().Assembly).Distinct().ToArray();
-    builder.Services.AddBuildingBlocks(builder.Configuration, moduleAssemblies);
-
-    // 3. Dịch vụ bảo mật dùng chung và cấu hình xác thực HTTP
-    builder.Services.AddSecurityServices(builder.Configuration);
-    builder.Services.AddApiAuthentication();
+    var modules = ModuleRegistry.Create();
+    builder.Services.AddApiServices(builder.Configuration, modules);
     ```
 
-- **Hành động**:
+- **Hành động**: [ModuleRegistry.cs](../src/Api/Modules/ModuleRegistry.cs) chứa danh sách 10 module theo thứ tự hiện tại. `AddApiServices` ghép các phần sau:
     - `AddBuildingBlocks`:
         - Đăng ký `TimeProvider.System` chuẩn hóa thời gian.
         - Đăng ký `MediatR` quét toàn bộ Handler trong 10 assemblies module.
@@ -106,11 +93,11 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
 
 ### Bước 4: Đăng ký Dependency Injection cho từng Module
 
-- **Dòng code**:
+- **Dòng code bên trong `AddApiServices`**:
     ```csharp
     foreach (var module in modules)
     {
-        module.AddServices(builder.Services, builder.Configuration);
+        module.AddServices(services, configuration);
     }
     ```
 - **Hành động**: Mỗi module độc lập đăng ký DbContext và services của riêng mình trong IoC Container mà không dính líu đến module khác.
@@ -118,29 +105,26 @@ Toàn bộ quá trình khởi động bắt đầu từ file:
 ### Bước 5: Xây dựng HTTP Middleware Pipeline
 
 - **Dòng code**: `var app = builder.Build();`
-- **Các Middleware được xâu chuỗi theo thứ tự**:
+- **`app.UseApiPipeline()` trong [ApiApplicationExtensions.cs](../src/Api/Extensions/ApiApplicationExtensions.cs) ghép middleware theo thứ tự**:
     1. `app.UseExceptionHandler()`: Lớp bọc ngoài cùng. Bắt mọi exception (kể cả `ValidationException` từ FluentValidation) và chuyển cho `GlobalExceptionHandler`.
     2. `app.UseMiddleware<CorrelationIdMiddleware>()`: Gán mã định danh duy nhất cho request (`X-Correlation-ID`).
     3. `app.UseCors("Default")`: Kiểm tra chính sách CORS.
     4. `app.UseAuthentication()`: Xác thực JWT và thiết lập danh tính người dùng.
     5. `app.UseAuthorization()`: Áp dụng yêu cầu phân quyền của endpoint.
     6. Nếu ở môi trường `Development`:
-        - Bật OpenAPI: `app.MapOpenApi()`.
-        - Kích hoạt giao diện UI tài liệu: `app.MapScalarApiReference()`.
-        - **Khởi tạo Module độc lập**: Lặp qua các module và gọi `await module.InitializeAsync(app.Services)` để tự kiểm tra/migrate DB.
+        - `MapApiDocumentation()` trong [HostEndpoints.cs](../src/Api/Endpoints/HostEndpoints.cs) bật OpenAPI và Scalar.
+        - `Program.cs` gọi `InitializeModulesAsync(modules)`, lặp qua từng module và gọi `InitializeAsync(app.Services)` để tự kiểm tra/migrate DB.
 
 ### Bước 6: Map Endpoints của từng Module & Lắng nghe Request
 
 - **Dòng code**:
     ```csharp
-    foreach (var module in modules)
-    {
-        module.MapEndpoints(app);
-    }
+    app.MapHostEndpoints(modules);
+    app.MapModuleEndpoints(modules);
     app.Run();
     ```
-- Mỗi module tự đăng ký các Minimal API của mình:
-    - Base class [ModuleDefinition.cs](file:///d:/Projects/skillbridge-api/src/BuildingBlocks/Contracts/ModuleDefinition.cs) tạo sẵn endpoint probe: `GET /api/v1/{routePrefix}/_module`.
+- `MapHostEndpoints` đăng ký root, `/health/live` và `/health/ready`. `MapModuleEndpoints` gọi từng module tự đăng ký Minimal API:
+    - Base class [ModuleDefinition.cs](file:///d:/Projects/skillbridge-api/src/BuildingBlocks/Modules/ModuleDefinition.cs) tạo sẵn endpoint probe: `GET /api/v1/{routePrefix}/_module`.
     - [IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/IdentityModule.cs) đăng ký thêm:
         - `GET /api/v1/identity/users/me`
         - `GET /api/v1/identity/users`
@@ -174,36 +158,31 @@ Giả sử Client gửi một request:
 
 ### 3. Request đến Endpoint Delegate (Minimal API)
 
-- **File**: [src/Modules/Identity/IdentityModule.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/IdentityModule.cs)
+- **File**: [UsersEndpoints.cs](../src/Modules/Identity/Endpoints/UsersEndpoints.cs)
 - **Đoạn code thực thi**:
 
     ```csharp
-    group.MapGet("/users", async (IdentityDbContext dbContext) =>
+    group.MapGet("/", async ([AsParameters] GetUsersRequest request, ISender sender) =>
     {
-        var users = await dbContext.Users
-            .AsNoTracking()
-            .Select(u => new
-            {
-                u.Id,
-                u.Email,
-                u.FullName,
-                u.Role,
-                u.IsActive,
-                u.CreatedAtUtc
-            })
-            .ToListAsync();
+        var query = new GetUsersQuery(
+            PageNumber: request.Page ?? 1,
+            PageSize: request.PageSize ?? 20,
+            SearchTerm: request.Search,
+            Role: request.Role,
+            IsActive: request.IsActive);
 
-        return Microsoft.AspNetCore.Http.Results.Ok(users);
-    });
+        var result = await sender.Send(query);
+        return result.ToHttpResult();
+    })
+    .RequireAuthorization();
     ```
 
 - **Các bước chi tiết**:
     1. ASP.NET Core Router phân giải đường dẫn khớp với template `/api/v1/identity/users`.
-    2. DI Container tự động inject instance `IdentityDbContext` vào lambda function.
-    3. `IdentityDbContext` sử dụng `UserConfiguration` ([UserConfiguration.cs](file:///d:/Projects/skillbridge-api/src/Modules/Identity/Infrastructure/Data/Configurations/UserConfiguration.cs)) để biết bảng cần truy vấn là `identity.users`.
-    4. Câu lệnh SQL được sinh ra:  
-       `SELECT id, email, full_name, role, is_active, created_at_utc FROM identity.users;`
-    5. Dữ liệu được trả về và đóng gói thành `Results.Ok(users)`.
+    2. Endpoint bind query parameters vào [GetUsersRequest.cs](../src/Modules/Identity/Application/Users/Requests/GetUsersRequest.cs), tạo `GetUsersQuery` và gửi qua `ISender`.
+    3. MediatR chạy pipeline behaviors trong `BuildingBlocks/Messaging/Behaviors/`, sau đó gọi handler trong [GetUsers.cs](../src/Modules/Identity/Application/Users/GetUsers/GetUsers.cs).
+    4. Handler dùng [IdentityDbContext.cs](../src/Modules/Identity/Infrastructure/Persistence/IdentityDbContext.cs) và [UserConfiguration.cs](../src/Modules/Identity/Infrastructure/Persistence/Configurations/UserConfiguration.cs) để lọc, đếm và phân trang `identity.users`.
+    5. Kết quả là `Result<PagedResult<UserResponse>>`; endpoint dùng `ToHttpResult()` trả JSON phân trang. Nhóm `Auth` áp dụng cùng cách tổ chức use case, Requests và Responses riêng.
 
 ### 4. Phản hồi trả về Client
 
@@ -212,7 +191,7 @@ Giả sử Client gửi một request:
 - Client nhận được:
     - **HTTP Status**: `200 OK`
     - **Headers**: `Content-Type: application/json`, `X-Correlation-ID: ...`
-    - **Body**: Danh sách JSON của người dùng.
+    - **Body**: JSON phân trang chứa các `UserResponse` và thông tin trang/tổng số.
 
 ---
 
@@ -220,24 +199,29 @@ Giả sử Client gửi một request:
 
 | Đường dẫn File                                                       | Tầng             | Vai trò chính                                                                                                                                                           |
 | :------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`Program.cs`**                                                     | `Bootstrapper`   | Điểm khởi đầu ứng dụng, nạp `.env`, cấu hình DI, middleware pipeline, kích hoạt 10 modules.                                                                             |
+| **`Program.cs`**                                                     | `Api`   | Ghép các bước khởi động, chỉ gọi initialization module trong Development. |
+| **`Modules/ModuleRegistry.cs`**                                      | `Api` | Danh sách 10 module, vòng đời initialization và mapping endpoints. |
+| **`Extensions/ApiServiceCollectionExtensions.cs`**                  | `Api` | Đăng ký services, CORS, health, BuildingBlocks, security và module services. |
+| **`Extensions/ApiApplicationExtensions.cs`**                         | `Api` | Ghép HTTP middleware theo thứ tự hiện tại. |
+| **`Endpoints/HostEndpoints.cs`**                                     | `Api` | Root, health và tài liệu API trong Development. |
 | **`Common/DotEnv.cs`**                                               | `Bootstrapper`   | Bộ quét và nạp file `.env` cục bộ vào biến môi trường hệ thống.                                                                                                         |
 | **[`Security/CurrentUser.cs`](../src/Api/Security/CurrentUser.cs)**    | `Api`            | Triển khai `ICurrentUser` lấy UserId, Email, Role từ `IHttpContextAccessor`.                                                                                            |
 | **[`Security/AuthenticationExtensions.cs`](../src/Api/Security/AuthenticationExtensions.cs)** | `Api` | `AddApiAuthentication` cấu hình JWT Bearer, phân quyền và đăng ký bối cảnh người dùng HTTP. |
 | **`Middleware/CorrelationIdMiddleware.cs`**                          | `Bootstrapper`   | Tạo và truyền mã `X-Correlation-ID` xuyên suốt request/response để truy vết log.                                                                                        |
 | **`Middleware/GlobalExceptionHandler.cs`**                           | `Bootstrapper`   | Bắt ngoại lệ tập trung, xử lý `ValidationException` và lỗi 500 chuẩn RFC 7807 `ProblemDetails`.                                                                         |
-| **`Contracts/IModule.cs` & `ModuleDefinition.cs`**                   | `BuildingBlocks` | Hợp đồng vòng đời module (`AddServices`, `MapEndpoints`, `InitializeAsync`) và endpoint probe `/_module`.                                                               |
-| **`CQRS/ICommand.cs` & `IQuery.cs`**                                 | `BuildingBlocks` | Giao diện Command/Query chuẩn hóa CQRS gắn liền với Railway `Result` / `Result<T>`.                                                                                     |
-| **`Behaviors/ValidationBehavior.cs`**                                | `BuildingBlocks` | MediatR pipeline tự động chạy FluentValidation trước khi gọi Handler.                                                                                                   |
-| **`Behaviors/LoggingBehavior.cs`**                                   | `BuildingBlocks` | MediatR pipeline đo thời gian thực thi, cảnh báo request chạy chậm (> 500ms).                                                                                           |
+| **`Modules/IModule.cs` & `ModuleDefinition.cs`**                   | `BuildingBlocks` | Hợp đồng vòng đời module (`AddServices`, `MapEndpoints`, `InitializeAsync`) và endpoint probe `/_module`.                                                               |
+| **`Messaging/CQRS/ICommand.cs` & `IQuery.cs`**                       | `BuildingBlocks` | Giao diện Command/Query chuẩn hóa CQRS gắn liền với Railway `Result` / `Result<T>`.                                                                                     |
+| **`Messaging/Behaviors/ValidationBehavior.cs`**                      | `BuildingBlocks` | MediatR pipeline tự động chạy FluentValidation trước khi gọi Handler.                                                                                                   |
+| **`Messaging/Behaviors/LoggingBehavior.cs`**                         | `BuildingBlocks` | MediatR pipeline đo thời gian thực thi, cảnh báo request chạy chậm (> 500ms).                                                                                           |
 | **`Security/ICurrentUser.cs`**                                       | `BuildingBlocks` | Hợp đồng lấy bối cảnh người dùng đăng nhập không phụ thuộc `HttpContext`.                                                                                               |
 | **`Security/SecurityExtensions.cs`**                                | `BuildingBlocks` | `AddSecurityServices` đăng ký JWT settings, dịch vụ cấp token và hash mật khẩu dùng chung. |
 | **`Domain/Entity.cs` & `AggregateRoot.cs`**                          | `BuildingBlocks` | Lớp cơ sở DDD: so sánh định danh Id và thu thập sự kiện miền `DomainEvents`.                                                                                            |
 | **`Domain/AuditableEntity.cs`**                                      | `BuildingBlocks` | Base Entity hỗ trợ audit (`CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`) và xóa mềm.                                                                               |
-| **`Infrastructure/Interceptors/AuditInterceptor.cs`**                | `BuildingBlocks` | EF Core interceptor tự động điền thời gian UTC và UserId khi `SaveChanges`.                                                                                             |
-| **`Infrastructure/Interceptors/DispatchDomainEventsInterceptor.cs`** | `BuildingBlocks` | EF Core interceptor tự động thu thập và phát domain events qua MediatR.                                                                                                 |
-| **`Events/IIntegrationEvent.cs` & `IEventBus.cs`**                   | `BuildingBlocks` | Hợp đồng giao tiếp bất đồng bộ liên module (hiện thực in-memory hoặc message broker).                                                                                   |
-| **`Pagination/PagedResult.cs`**                                      | `BuildingBlocks` | Đối tượng phản hồi phân trang chuẩn thống nhất format JSON cho cả 10 modules.                                                                                           |
-| **`Results/Result.cs` & `ResultExtensions.cs`**                      | `BuildingBlocks` | Railway-Oriented Programming và helper chuyển đổi Result sang Minimal API `IResult`.                                                                                    |
-| **`Extensions/BuildingBlocksExtensions.cs`**                         | `BuildingBlocks` | Extension method đăng ký tập trung toàn bộ MediatR, FluentValidation, Interceptors, EventBus.                                                                           |
+| **`Persistence/Interceptors/AuditInterceptor.cs`**                | `BuildingBlocks` | EF Core interceptor tự động điền thời gian UTC và UserId khi `SaveChanges`.                                                                                             |
+| **`Persistence/Interceptors/DispatchDomainEventsInterceptor.cs`** | `BuildingBlocks` | EF Core interceptor tự động thu thập và phát domain events qua MediatR.                                                                                                 |
+| **`Messaging/Events/IIntegrationEvent.cs` & `IEventBus.cs`**         | `BuildingBlocks` | Hợp đồng giao tiếp bất đồng bộ liên module (hiện thực in-memory hoặc message broker).                                                                                   |
+| **`Results/Pagination/PagedResult.cs`**                              | `BuildingBlocks` | Đối tượng phản hồi phân trang chuẩn thống nhất format JSON cho cả 10 modules. |
+| **`Results/Result.cs` & `Http/ResultExtensions.cs`**                  | `BuildingBlocks` | Result/Error giữ kết quả xử lý; Http chứa helper chuyển đổi sang Minimal API IResult. |
+| **`BuildingBlocksExtensions.cs`**                         | `BuildingBlocks` | Extension method đăng ký tập trung toàn bộ MediatR, FluentValidation, Interceptors, EventBus.                                                                           |
 | **`src/Modules/*/{Name}Module.cs`**                                  | `Modules`        | Triển khai 10 Bounded Contexts độc lập (`Identity`, `Profiles`, `Catalog`, `Scheduling`, `Booking`, `Payments`, `Learning`, `Messaging`, `Reviews`, `Recommendations`). |
+| **`Directory.Build.props` & `Directory.Packages.props`**             | `Solution` | Cấu hình C# và phiên bản NuGet dùng chung cho toàn bộ project. |

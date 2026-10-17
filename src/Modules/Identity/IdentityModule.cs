@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.BuildingBlocks.Modules;
 using SkillBridge.Modules.Identity.Endpoints;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 
 namespace SkillBridge.Modules.Identity;
 

@@ -29,6 +29,7 @@
       Path="src/Modules/Scheduling/SkillBridge.Modules.Scheduling.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/SkillBridge.Tests/SkillBridge.Tests.csproj" />
+    <Project Path="tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj" />
+    <Project Path="tests/IntegrationTests/SkillBridge.IntegrationTests.csproj" />
   </Folder>
 </Solution>

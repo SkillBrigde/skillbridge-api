@@ -2,15 +2,15 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.BuildingBlocks.Http;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.Commands.ChangePassword;
-using SkillBridge.Modules.Identity.Application.Commands.Login;
-using SkillBridge.Modules.Identity.Application.Commands.Logout;
-using SkillBridge.Modules.Identity.Application.Commands.RefreshToken;
-using SkillBridge.Modules.Identity.Application.Commands.Register;
-using SkillBridge.Modules.Identity.Application.DTOs.Requests;
-using SkillBridge.Modules.Identity.Application.DTOs.Responses;
+using SkillBridge.Modules.Identity.Application.Auth.ChangePassword;
+using SkillBridge.Modules.Identity.Application.Auth.Login;
+using SkillBridge.Modules.Identity.Application.Auth.Logout;
+using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
+using SkillBridge.Modules.Identity.Application.Auth.Register;
+using SkillBridge.Modules.Identity.Application.Auth.Requests;
+using SkillBridge.Modules.Identity.Application.Auth.Responses;
 
 namespace SkillBridge.Modules.Identity.Endpoints;
 

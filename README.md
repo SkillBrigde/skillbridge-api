@@ -6,11 +6,13 @@ Hệ thống Backend xây dựng theo kiến trúc **Modular Monolith** trên n�
 
 ## 🏛️ Kiến trúc hệ thống
 
-- `src/Api`: Điểm khởi chạy (Composition Root), quản lý HTTP pipeline, health checks, OpenAPI/Scalar, CORS, rate limiting.
-- `src/BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`).
-- `src/Modules/*`: Các phân hệ nghiệp vụ độc lập theo **7 Bounded Contexts** (1. Identity & RBAC, 2. Sessions & Thiết Bị, 3. Profiles & Services, 4. Scheduling & Slots, 5. Bookings & Sessions, 6. Payments & Dual Escrow, 7. Trust & Disputes).
-- **Ranh giới dữ liệu**: Mỗi phân hệ quản lý 24 bảng chuyên trách, giao tiếp bằng decoupled GUIDv7, không khóa ngoại vật lý chéo schema.
-- **Giao tiếp liên phân hệ**: Các phân hệ **không reference chéo trực tiếp**. Sử dụng contracts và integration events qua RabbitMQ.
+- `src/Api`: Điểm khởi chạy (Composition Root), quản lý HTTP pipeline, health checks, OpenAPI/Scalar và CORS; danh sách module nằm trong `Modules/ModuleRegistry.cs`.
+- `src/BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`); CQRS, pipeline behaviors và integration events nằm trong `Messaging/`.
+- `src/Modules/*`: 10 project module độc lập; Identity có nghiệp vụ Auth/Users, chín module còn lại đang là khung chờ bổ sung nghiệp vụ.
+- **Ranh giới dữ liệu**: Mỗi module sở hữu schema và migration riêng, không tạo khóa ngoại vật lý chéo schema. Mô hình nghiệp vụ dự kiến được trình bày trong tài liệu thiết kế.
+- **Giao tiếp liên phân hệ**: Các module không reference chéo trực tiếp. Event bus hiện được đăng ký bằng `InMemoryEventBus`; RabbitMQ/outbox là hướng thiết kế tích hợp.
+
+Xem [cấu trúc toàn backend](docs/backend-structure.md) để biết vai trò của API, BuildingBlocks, các module, test và cách thêm chức năng. `Directory.Build.props` quản lý cấu hình build chung; `Directory.Packages.props` quản lý phiên bản NuGet cho cả 14 project.
 
 ---
 
@@ -42,7 +44,7 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 
 ### 2. Khởi động hạ tầng cục bộ (Database, Broker, Cache)
 
-Chạy lệnh duy nhất để bật PostgreSQL 17 (kèm sẵn 7 schemas / 24 bảng), RabbitMQ và Redis:
+Khởi động PostgreSQL 17, RabbitMQ và Redis; migration dữ liệu do từng module quản lý:
 
 ```powershell
 docker compose up -d
@@ -86,7 +88,7 @@ dotnet format SkillBridge.slnx --verify-no-changes
 # 2. Biên dịch chế độ Release và chặn toàn bộ Warning
 dotnet build SkillBridge.slnx --configuration Release --warnaserror
 
-# 3. Chạy bộ kiểm thử xUnit trong tests/SkillBridge.Tests
+# 3. Chạy các project xUnit trong tests/ArchitectureTests và tests/IntegrationTests
 dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
 ```
 
@@ -98,8 +100,12 @@ Khi thêm mới use case hoặc tạo module mới trong `src/Modules/{ModuleNam
 
 ```text
 Domain/          Entities, Value Objects, Domain Events và Domain Errors
-Application/     Commands, Queries, Validators và DTOs
-Infrastructure/  Persistence (ModuleDbContext theo schema PostgreSQL riêng), Repositories
+Application/     Nhóm nghiệp vụ (Identity: Auth, Users), mỗi nhóm có use case, Requests và Responses
+Infrastructure/  Persistence/ chứa DbContext, Configurations và Migrations của module
 Endpoints/       Minimal API endpoint mappings
 {Name}Module.cs  Kế thừa ModuleDefinition, đăng ký DI services, migrate DB và map endpoints
 ```
+
+Ví dụ: `Application/Auth/Login/Login.cs` chứa command, validator và handler; hợp đồng HTTP nằm riêng ở `Application/Auth/Requests/LoginRequest.cs` và `Application/Auth/Responses/AuthResponse.cs`. Xem [quy ước chi tiết](docs/setup-guide.md#bước-4-tạo-cấu-trúc-4-tầng-nội-bộ-trong-module). Chỉ tạo thư mục khi có mã nguồn; các module còn là khung không cần tạo sẵn cây rỗng.
+
+Kiểm thử ranh giới module nằm trong `tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj`; kiểm thử endpoint và cấu hình bảo mật nằm trong `tests/IntegrationTests/SkillBridge.IntegrationTests.csproj`.

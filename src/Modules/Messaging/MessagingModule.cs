@@ -1,5 +1,4 @@
-
-using SkillBridge.BuildingBlocks.Contracts;
+using SkillBridge.BuildingBlocks.Modules;
 
 namespace SkillBridge.Modules.Messaging;
 

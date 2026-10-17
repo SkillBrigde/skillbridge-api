@@ -2,14 +2,14 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using SkillBridge.BuildingBlocks.Pagination;
-using SkillBridge.BuildingBlocks.Results;
+using SkillBridge.BuildingBlocks.Http;
+using SkillBridge.BuildingBlocks.Results.Pagination;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.Commands.UpdateUserStatus;
-using SkillBridge.Modules.Identity.Application.DTOs.Requests;
-using SkillBridge.Modules.Identity.Application.DTOs.Responses;
-using SkillBridge.Modules.Identity.Application.Queries.GetCurrentUser;
-using SkillBridge.Modules.Identity.Application.Queries.GetUsers;
+using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
+using SkillBridge.Modules.Identity.Application.Users.GetUsers;
+using SkillBridge.Modules.Identity.Application.Users.Requests;
+using SkillBridge.Modules.Identity.Application.Users.Responses;
+using SkillBridge.Modules.Identity.Application.Users.UpdateUserStatus;
 
 namespace SkillBridge.Modules.Identity.Endpoints;
 
