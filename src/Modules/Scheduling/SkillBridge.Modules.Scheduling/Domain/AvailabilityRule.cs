@@ -14,4 +14,23 @@ public sealed class AvailabilityRule : AggregateRoot<Guid>
     public bool IsActive { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
+
+    public static Result<AvailabilityRule> Create(Guid mentorId, AvailabilityWindow window, DateTimeOffset now)
+    {
+        if (mentorId == Guid.Empty)
+        {
+            return Error.Validation("Scheduling.InvalidMentorId", "Mã Mentor không hợp lệ.");
+        }
+
+        return new AvailabilityRule
+        {
+            Id = Guid.CreateVersion7(),
+            MentorId = mentorId,
+            DayOfWeek = window.DayOfWeek,
+            StartTime = window.StartTime,
+            EndTime = window.EndTime,
+            IsActive = true,
+            CreatedAtUtc = now
+        };
+    }
 }

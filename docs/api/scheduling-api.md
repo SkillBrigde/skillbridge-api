@@ -148,10 +148,23 @@ Trống.
 
 ## 4. Thêm Availability Rule
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `POST`  
 **URL:** `/api/v1/scheduling/availability-rules`  
 **Mô tả:** Thêm một khung giờ rảnh hàng tuần.  
 **Quyền truy cập:** `Mentor`
+
+### Quy tắc nghiệp vụ
+
+- Mentor phải có hồ sơ Profiles và Scheduling Settings hợp lệ trước khi thêm rule.
+- `dayOfWeek`, `startTime`, `endTime` đều bắt buộc; không nhận trường JSON ngoài contract.
+- `dayOfWeek` từ `0` (Chủ nhật) đến `6` (Thứ bảy).
+- `startTime`, `endTime` là giờ địa phương trong timezone của Settings, định dạng `HH:mm:ss`, không nhận phần lẻ giây; không gửi UTC offset.
+- Giờ bắt đầu phải nhỏ hơn giờ kết thúc trong cùng ngày; khoảng qua đêm cần tách rule.
+- Rule mới mặc định `isActive = true`. Chỉ rule đang hoạt động bị kiểm tra chồng giờ theo cùng Mentor và ngày trong tuần.
+- Khoảng giờ được hiểu là `[startTime, endTime)`: hai rule tiếp giáp được phép, ví dụ `09:00–11:00` và `11:00–12:00`.
+- Ghi rule được tuần tự hóa trong transaction theo Mentor để chống tạo chồng giờ khi request chạy đồng thời.
 
 ### Request Body
 ```json
@@ -173,6 +186,14 @@ Trống.
   "isActive": true
 }
 ```
+
+### Responses
+
+- `201 Created`: Rule mới, kèm header `Location` trỏ đến định danh rule (định danh dùng cho PUT/DELETE).
+- `400 Bad Request`: Dữ liệu thiếu hoặc không hợp lệ.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Không có vai trò Mentor.
+- `409 Conflict`: Chưa có hồ sơ/Settings hoặc chồng giờ với rule đang hoạt động.
 
 ---
 
