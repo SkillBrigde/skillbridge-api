@@ -23,6 +23,58 @@ namespace SkillBridge.Modules.Scheduling.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("SkillBridge.Modules.Scheduling.Domain.AvailabilityRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("day_of_week");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasPrecision(0)
+                        .HasColumnType("time(0) without time zone")
+                        .HasColumnName("end_time");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("MentorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("mentor_id");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasPrecision(0)
+                        .HasColumnType("time(0) without time zone")
+                        .HasColumnName("start_time");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MentorId", "DayOfWeek", "StartTime", "Id")
+                        .HasDatabaseName("ix_availability_rules_mentor_day_start");
+
+                    b.ToTable("availability_rules", "scheduling", t =>
+                        {
+                            t.HasCheckConstraint("ck_availability_rules_day_of_week", "day_of_week BETWEEN 0 AND 6");
+
+                            t.HasCheckConstraint("ck_availability_rules_mentor_id", "mentor_id <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("ck_availability_rules_time_range", "start_time < end_time");
+                        });
+                });
+
             modelBuilder.Entity("SkillBridge.Modules.Scheduling.Domain.SchedulingSettings", b =>
                 {
                     b.Property<Guid>("Id")

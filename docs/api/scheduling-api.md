@@ -5,6 +5,8 @@
 **Trách nhiệm:** Lịch biểu sẵn sàng (Availability Slots) của Mentor, ngày nghỉ, lịch bận.  
 **Authentication:** JWT Bearer Token
 
+**Phạm vi hiện tại:** Settings và API Rules có đánh dấu `IMPLEMENTED` đã hoạt động. Sinh/tái sinh Slots và Time-offs thuộc ND-10, chưa được triển khai; các quy ước về Slots bên dưới là yêu cầu cho giai đoạn đó.
+
 **Quy tắc nghiệp vụ:**
 - Slots tự động sinh từ `availability_rules`
 - Khi tạo `time-off`, hệ thống sẽ tự động hủy các slots đang ở trạng thái `Available` nằm trong khoảng thời gian đó.
@@ -97,10 +99,20 @@ Trống.
 
 ## 3. Lấy danh sách Availability Rules
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `GET`  
 **URL:** `/api/v1/scheduling/availability-rules`  
 **Mô tả:** Danh sách các quy tắc lặp lại hàng tuần của Mentor.  
 **Quyền truy cập:** `Mentor`
+
+### Query Parameters
+
+- `page`: mặc định `1`, tối thiểu `1`; vị trí trang không vượt quá `Int32.MaxValue`.
+- `pageSize`: mặc định `100`, từ `1` đến `100`.
+- Chỉ trả rule của Mentor hiện tại, gồm cả rule ngừng hoạt động; sắp xếp theo `dayOfWeek`, `startTime`, `id`.
+- `dayOfWeek`: `0` là Chủ nhật, `1` là Thứ hai, …, `6` là Thứ bảy.
+- Mentor có hồ sơ nhưng chưa có rule nhận danh sách rỗng.
 
 ### Response Body (200 OK)
 ```json
@@ -118,9 +130,19 @@ Trống.
   "page": 1,
   "pageSize": 100,
   "totalCount": 1,
-  "totalPages": 1
+  "totalPages": 1,
+  "hasPreviousPage": false,
+  "hasNextPage": false
 }
 ```
+
+### Responses
+
+- `200 OK`: Danh sách rule của Mentor hiện tại.
+- `400 Bad Request`: Tham số phân trang không hợp lệ.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Không có vai trò Mentor.
+- `409 Conflict`: Chưa tạo hồ sơ Mentor.
 
 ---
 
