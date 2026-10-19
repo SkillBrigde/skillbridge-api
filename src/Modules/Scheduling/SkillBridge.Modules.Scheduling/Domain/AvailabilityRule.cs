@@ -33,4 +33,13 @@ public sealed class AvailabilityRule : AggregateRoot<Guid>
             CreatedAtUtc = now
         };
     }
+
+    public void Update(AvailabilityWindow window, bool isActive, DateTimeOffset now)
+    {
+        DayOfWeek = window.DayOfWeek;
+        StartTime = window.StartTime;
+        EndTime = window.EndTime;
+        IsActive = isActive;
+        UpdatedAtUtc = now;
+    }
 }

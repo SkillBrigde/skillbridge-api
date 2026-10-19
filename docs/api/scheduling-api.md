@@ -199,10 +199,20 @@ Trống.
 
 ## 5. Sửa Availability Rule
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `PUT`  
 **URL:** `/api/v1/scheduling/availability-rules/{ruleId}`  
 **Mô tả:** Cập nhật rule rảnh.  
 **Quyền truy cập:** `Mentor`
+
+### Quy tắc nghiệp vụ
+
+- Quy tắc về ngày, giờ, timezone và Settings giống POST.
+- Bắt buộc gửi đủ `dayOfWeek`, `startTime`, `endTime`, `isActive`.
+- Chỉ cập nhật rule thuộc Mentor hiện tại. ID không tồn tại và ID thuộc Mentor khác đều trả `404`.
+- `isActive = false` được phép trùng giờ; bật lại phải kiểm tra chồng giờ với các rule đang hoạt động.
+- Gửi lại cùng dữ liệu trả `204`; kiểm tra chồng giờ loại trừ chính rule đang sửa.
 
 ### Request Body
 ```json
@@ -216,6 +226,15 @@ Trống.
 
 ### Response Body (204 No Content)
 Trống.
+
+### Responses
+
+- `204 No Content`: Cập nhật thành công.
+- `400 Bad Request`: Dữ liệu thiếu hoặc không hợp lệ.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Không có vai trò Mentor.
+- `404 Not Found`: Rule không tồn tại hoặc không thuộc Mentor hiện tại.
+- `409 Conflict`: Chưa có hồ sơ/Settings hoặc chồng giờ với rule đang hoạt động.
 
 ---
 
