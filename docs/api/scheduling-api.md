@@ -240,13 +240,31 @@ Trống.
 
 ## 6. Xóa Availability Rule
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `DELETE`  
 **URL:** `/api/v1/scheduling/availability-rules/{ruleId}`  
 **Mô tả:** Xóa một quy tắc thời gian rảnh.  
 **Quyền truy cập:** `Mentor`
 
+### Quy tắc nghiệp vụ
+
+- Chỉ xóa rule thuộc Mentor hiện tại; không tồn tại và không thuộc quyền sở hữu đều trả `404`.
+- Xóa cả rule đang hoạt động hoặc ngừng hoạt động; GET không trả lại rule đã xóa.
+- Yêu cầu hồ sơ và Settings, dùng cùng khóa transaction theo Mentor như POST/PUT.
+- Gọi lại sau khi xóa trả `404`.
+
 ### Response Body (204 No Content)
 Trống.
+
+### Responses
+
+- `204 No Content`: Xóa thành công.
+- `400 Bad Request`: Rule ID rỗng.
+- `401 Unauthorized`: Chưa đăng nhập.
+- `403 Forbidden`: Không có vai trò Mentor.
+- `404 Not Found`: Rule không tồn tại hoặc không thuộc Mentor hiện tại.
+- `409 Conflict`: Chưa có hồ sơ/Settings.
 
 ---
 

@@ -41,6 +41,7 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapGetAvailabilityRules();
         group.MapAddAvailabilityRule();
         group.MapUpdateAvailabilityRule();
+        group.MapRemoveAvailabilityRule();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)
