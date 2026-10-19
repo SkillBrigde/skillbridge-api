@@ -25,6 +25,7 @@ public sealed class SchedulingModule : ModuleDefinition
         services.AddDbContext<SchedulingDbContext>(options => options.UseNpgsql(connectionString,
             npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)));
         services.TryAddScoped<IMentorDirectory, UnavailableMentorDirectory>();
+        services.AddScoped<AvailabilityRuleStore>();
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -37,6 +38,10 @@ public sealed class SchedulingModule : ModuleDefinition
 
         group.MapGetSchedulingSettings();
         group.MapUpdateSchedulingSettings();
+        group.MapGetAvailabilityRules();
+        group.MapAddAvailabilityRule();
+        group.MapUpdateAvailabilityRule();
+        group.MapRemoveAvailabilityRule();
     }
 
     public override async Task InitializeAsync(IServiceProvider serviceProvider)

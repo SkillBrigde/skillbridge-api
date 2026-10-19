@@ -10,6 +10,7 @@ public sealed class SchedulingDbContext(DbContextOptions<SchedulingDbContext> op
     public const string Schema = "scheduling";
 
     public DbSet<SchedulingSettings> SchedulingSettings => Set<SchedulingSettings>();
+    public DbSet<AvailabilityRule> AvailabilityRules => Set<AvailabilityRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
