@@ -1,6 +1,6 @@
 # Booking API — gói nhiều buổi
 
-Base path: `/api/v1/booking`, JWT bắt buộc. Đã có 9 route nghiệp vụ và migration schema `booking`. **Chưa hoàn thiện tích hợp Payments, Learning và dispatcher outbox; chưa dùng để thu tiền production.**
+Base path: `/api/v1/booking`, JWT bắt buộc. Đã có 9 route nghiệp vụ và migration schema `booking`. Trên nhánh Learning kế tiếp đã nối bằng chứng hoàn tất và relay Booking → Learning. **Payments/gateway thật còn thiếu; chưa dùng để thu tiền production.**
 
 ## Các route
 
@@ -11,7 +11,7 @@ Base path: `/api/v1/booking`, JWT bắt buộc. Đã có 9 route nghiệp vụ v
 | GET | `/bookings` | Người dùng liên quan; Admin xem tất cả | 200 phân trang |
 | POST | `/bookings/{bookingId}/confirm` | Đúng Mentor | 204 |
 | POST | `/bookings/{bookingId}/cancel` | Hai bên | 204 |
-| POST | `/bookings/{bookingId}/complete` | Hai bên | 204 khi có đủ bằng chứng Learning; hiện phụ thuộc chưa có trả 503 |
+| POST | `/bookings/{bookingId}/complete` | Hai bên | 204 khi đủ bằng chứng Learning; thiếu buổi hoàn tất trả 409 |
 | POST | `/bookings/{bookingId}/reschedule` | Hai bên | 201 đối tượng yêu cầu, Location trỏ booking |
 | POST | `/reschedule-requests/{requestId}/respond` | Bên nhận yêu cầu | 204 |
 | GET | `/bookings/{bookingId}/audit-logs` | Hai bên hoặc Admin | 200 phân trang |
@@ -66,7 +66,7 @@ Luồng: `Holding → PendingPayment → AwaitingMentor → Confirmed → Comple
 - Cổng nội bộ `ReceivePaymentAsync` chỉ cho adapter Payments tin cậy, khớp payment ID/tổng tiền/tiền tệ, booking chưa quá hạn và còn đủ slot. Retry không được đổi số tiền; một payment không dùng cho hai booking. Không có REST endpoint để client khai đã thanh toán.
 - Cancel nhận `{ "reason": "Không thể tham gia" }`: lý do bắt buộc, tối đa 2000 ký tự. Chỉ hủy gói chưa bắt đầu; Mentee hủy gói đã trả tiền phải trước buổi đầu ít nhất 24 giờ theo contract hiện tại. Không tự hoàn phần gói. Khi Applying dời lịch trả 409 để thử lại sau.
 - Hủy 204 nghĩa trạng thái hủy và yêu cầu nhả slot đã lưu bền. Nhả thử ngay, worker tiếp tục nếu phụ thuộc lỗi. Hủy trả tiền dừng RefundReview, không tự hoàn/chi tiền. Retry không sinh audit/sự kiện trùng.
-- Complete không nhận bằng chứng từ client; cần Confirmed, đủ ID buổi hoàn thành do Learning xác minh và đã qua giờ kết thúc tất cả buổi. **Adapter Learning chưa có: trả 503 Booking.DependencyUnavailable khi cần xác minh.** Không tự đánh dấu hoàn tất và không kích hoạt giải ngân.
+- Complete không nhận bằng chứng từ client; cần Confirmed, đủ ID buổi hoàn thành do Learning xác minh và đã qua giờ kết thúc tất cả buổi. Adapter Learning trên nhánh này kiểm tra đủ bookingSessionId đã Completed; thiếu bằng chứng trả 409. Khi không cấu hình producer trả 503. Không tự đánh dấu hoàn tất và không kích hoạt giải ngân.
 
 ## Dời từng buổi
 
@@ -90,7 +90,7 @@ Từ chối → Rejected, lịch cũ giữ nguyên. Đồng ý → lưu Applying
 
 Worker mỗi 5 giây, theo lô 100, khôi phục Holding, hủy booking quá hạn/nhả slot và tiếp tục Applying. Khóa PostgreSQL bảo vệ các tiến trình cùng dùng database; timer không phải SLA. Một lỗi xử lý riêng không dừng phần còn lại của lô.
 
-Outbox lưu cùng transaction cho Confirmed, Cancelled, RefundReview, Completed và Rescheduled. **Chưa có dispatcher sang Learning/Payments**, nên chưa xác nhận đã tự tạo buổi học hoặc hoàn tiền từ các sự kiện này. Callback đến muộn/mất slot phải đưa sang đối soát tại Payments, không tự cấp slot mới hay chi tiền. Chưa kết nối gateway thật; kiểm thử gọi cổng tin cậy, không giả lập thanh toán thành công trong runtime.
+Outbox lưu cùng transaction cho Confirmed, Cancelled, RefundReview, Completed và Rescheduled. Đã có relay nội bộ sang Learning với inbox chống trùng và retry; chưa có consumer Payments để xử lý tài chính. Không đồng nghĩa đã hoàn tiền. Callback đến muộn/mất slot phải đưa sang đối soát tại Payments, không tự cấp slot mới hay chi tiền. Chưa kết nối gateway thật; kiểm thử gọi cổng tin cậy, không giả lập thanh toán thành công trong runtime.
 
 **Phí, hoàn tiền và hạn khiếu nại chưa chốt; giải ngân tự động bị khóa theo quyết định chủ dự án.**
 

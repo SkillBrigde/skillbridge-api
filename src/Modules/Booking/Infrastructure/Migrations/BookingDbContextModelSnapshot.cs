@@ -47,6 +47,10 @@ namespace SkillBridge.Modules.Booking.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("processed_on_utc");
 
+                    b.Property<DateTimeOffset?>("RetryAfterUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retry_after_utc");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)

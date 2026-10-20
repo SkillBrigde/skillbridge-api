@@ -24,6 +24,7 @@ public sealed class BookingModule : ModuleDefinition
         services.TryAddScoped<IBookingSlotReservations, UnavailableBookingDependencies>();
         services.TryAddScoped<IBookingCompletionEvidence, UnavailableBookingDependencies>();
         services.AddScoped<Bookings>();
+        services.AddScoped<BookingSnapshots>();
         services.AddScoped<Reschedules>();
         services.AddHostedService<BookingMaintenance>();
     }

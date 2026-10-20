@@ -128,7 +128,7 @@ internal static class BookingChecks
         }
         using var confirm = await DatabaseChecks.SendAsync(client, HttpMethod.Post, $"{root}/{bookingId}/confirm", 204, new { mentorNote = "Chuẩn bị tài liệu" }, mentor.Token);
         using var confirmAgain = await DatabaseChecks.SendAsync(client, HttpMethod.Post, $"{root}/{bookingId}/confirm", 204, new { mentorNote = "Chuẩn bị tài liệu" }, mentor.Token);
-        using var unavailableEvidence = await DatabaseChecks.SendAsync(client, HttpMethod.Post, $"{root}/{bookingId}/complete", 503, bearer: menteeToken);
+        using var unavailableEvidence = await DatabaseChecks.SendAsync(client, HttpMethod.Post, $"{root}/{bookingId}/complete", 409, bearer: menteeToken);
         var firstSession = booking.GetProperty("sessions")[0].GetProperty("id").GetGuid();
         using var reschedule = await DatabaseChecks.SendAsync(client, HttpMethod.Post, $"{root}/{bookingId}/reschedule", 201,
             new { bookingSessionId = firstSession, newSlotId = slotIds[2], reason = "Đổi giờ" }, menteeToken);

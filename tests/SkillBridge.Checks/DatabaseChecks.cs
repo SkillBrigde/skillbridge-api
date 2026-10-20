@@ -26,6 +26,7 @@ using SkillBridge.Modules.Identity;
 using SkillBridge.Modules.Identity.Application.Auth;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Persistence;
+using SkillBridge.Modules.Learning;
 using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
@@ -89,6 +90,7 @@ internal static class DatabaseChecks
             typeof(MessagingModule).Assembly,
             typeof(SchedulingModule).Assembly,
             typeof(BookingModule).Assembly,
+            typeof(LearningModule).Assembly,
             typeof(ProfilesModule).Assembly);
         builder.Services.AddSecurityServices(builder.Configuration);
         builder.Services.AddApiAuthentication();
@@ -99,8 +101,12 @@ internal static class DatabaseChecks
         var booking = new BookingModule();
         booking.AddServices(builder.Services, builder.Configuration);
         builder.Services.AddBookingComposition();
+        var learning = new LearningModule();
+        learning.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddLearningComposition();
+        LearningChecks.ConfigureServices(builder.Services);
         // Reconciliation được gọi trực tiếp để kiểm tra phục hồi/hết hạn không phụ thuộc timer 5 giây.
-        foreach (var descriptor in builder.Services.Where(x => x.ImplementationType?.Name == "BookingMaintenance").ToArray())
+        foreach (var descriptor in builder.Services.Where(x => x.ImplementationType?.Name is "BookingMaintenance" or "BookingLifecycleWorker").ToArray())
             builder.Services.Remove(descriptor);
         var messaging = new MessagingModule();
         messaging.AddServices(builder.Services, builder.Configuration);
@@ -124,6 +130,7 @@ internal static class DatabaseChecks
         profiles.MapEndpoints(app);
         scheduling.MapEndpoints(app);
         booking.MapEndpoints(app);
+        learning.MapEndpoints(app);
         app.Urls.Add("http://127.0.0.1:0");
 
         await using (var scope = app.Services.CreateAsyncScope())
@@ -150,6 +157,7 @@ internal static class DatabaseChecks
             await profileData.Database.MigrateAsync();
             await scheduling.InitializeAsync(app.Services);
             await booking.InitializeAsync(app.Services);
+            await learning.InitializeAsync(app.Services);
             Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() &&
                 !(await taxonomy.Database.GetPendingMigrationsAsync()).Any() &&
                 !(await profileData.Database.GetPendingMigrationsAsync()).Any(),
@@ -185,6 +193,7 @@ internal static class DatabaseChecks
             await MentorServiceChecks.RunAsync(client, app.Services, mentee.AccessToken);
             await SchedulingChecks.RunAsync(client, app.Services, mentee.AccessToken);
             await BookingChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await LearningChecks.RunAsync(client, app.Services, mentee.AccessToken, admin.AccessToken);
             using var adminMe = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 200, bearer: admin.AccessToken);
             var adminId = (await JsonAsync(adminMe)).GetProperty("id").GetGuid();
             using var selfDisable = await SendAsync(client, HttpMethod.Put, $"/api/v1/identity/users/{adminId}/status", 403,
