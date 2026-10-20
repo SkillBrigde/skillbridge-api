@@ -12,13 +12,13 @@ Cập nhật 20/10/2026. Trạng thái dưới đây mô tả mã nguồn của 
 | Scheduling | 10 | Settings, rules, sinh slot theo timezone, ngày nghỉ và giữ/xác nhận/nhả nhiều slot nội bộ |
 | Messaging | 8 + 1 Hub | REST và SignalR, quyền thành viên, lưu tin nhắn, đọc/sửa/xóa và bảo vệ phiên |
 
-Tổng 61 REST + 1 Hub theo contract hiện có (gồm 6 API mentor services bổ sung). Scheduling Slots/Time-offs thuộc đợt ND-10 này, cần merge PR trước khi sử dụng từ `develop`.
+Tổng 61 REST + 1 Hub theo contract hiện có (gồm 6 API mentor services bổ sung). Scheduling Slots/Time-offs thuộc ND-10, đã merge vào `develop` qua PR #27 tại commit `cac16bd`.
 
 ## Booking core trong nhánh kế tiếp
 
 Nhánh `dang/booking-packages` bổ sung 9 route Booking: snapshot điều khoản/giá, đủ slot cho gói, idempotency, quyền sở hữu, audit, hủy/hết hạn và dời một buổi có bên còn lại chấp thuận. Ý định lưu bền để phục hồi nếu tiến trình dừng sau khi Scheduling đã commit.
 
-**Chưa có Payments xác minh gateway thật, adapter bằng chứng Learning hoặc dispatcher outbox.** Booking đầu cuối chưa hoàn tất: API complete trả 503 khi cần nguồn Learning chưa có. Tổng 70 REST có route trên nhánh này, gồm 9 route Booking còn phụ thuộc; không phải 70 API production sẵn sàng. Scheduling ND-10 nằm trong PR #27; Booking dựa trên phần nền đó.
+**Chưa có Payments xác minh gateway thật, adapter bằng chứng Learning hoặc dispatcher outbox.** Booking đầu cuối chưa hoàn tất: API complete trả 503 khi cần nguồn Learning chưa có. Tổng 70 REST có route trên nhánh này, gồm 9 route Booking còn phụ thuộc; không phải 70 API production sẵn sàng. Nhánh Booking đã đồng bộ `develop` sau khi PR #27 được squash merge, giữ các bổ sung dời lịch và phục hồi giữ chỗ của ND-11.
 
 ## Chưa hoàn thiện
 
