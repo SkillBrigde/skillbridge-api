@@ -1,190 +1,48 @@
-# API Contract - Recommendations Module
+# Recommendations API — dữ liệu thật, thuật toán rules-v1
 
-**Module**: Recommendations  
-**Base Path**: `/api/v1/recommendations`  
-**Description**: API cho module Recommendations, cung cấp thuật toán gợi ý Mentor phù hợp nhất cho Mentee dựa trên kỹ năng, lịch sử, tương tác và đánh giá.
+Base `/api/v1/recommendations`, 5 API. Không sinh số liệu demo hoặc gán điểm trung bình cho Mentor chưa có review.
 
----
+| Method | URL | Quyền | Response |
+|---|---|---|---|
+| GET | `/mentors?page=1&pageSize=20` | Mentee | Mentor được xếp theo score, reasons, metrics; lưu log rules-v1 của trang trả về |
+| GET | `/mentors/for-skill/{skillId}?page=1&pageSize=10` | Anonymous | Mentor có kỹ năng Catalog hoạt động; 404 kỹ năng không hoạt động/không có |
+| POST | `/interactions` | Mentee | 204, ghi tương tác của chính user từ JWT |
+| GET | `/mentors/{mentorId}/metrics` | Admin hoặc Mentor sở hữu profile | 200 metrics snapshot, 403 sai chủ, 404 không có profile, 503 snapshot chưa sẵn sàng |
+| GET | `/trending-skills` | Anonymous | Tối đa 20 kỹ năng, trendingScore và tên Catalog hiện tại |
 
-## 1. Gợi ý Mentors phù hợp cho Mentee
+Phân trang page >= 1, pageSize 1–100, có kiểm tra tràn số. List: `items/page/pageSize/totalCount/totalPages`; tie score được sắp theo mentorId để thứ tự ổn định.
 
-Lấy danh sách các Mentor được đề xuất cho Mentee hiện tại, sắp xếp theo điểm phù hợp (score).
+## Dữ liệu và cách tính
 
-- **Method**: `GET`
-- **URL**: `/api/v1/recommendations/mentors`
-- **Auth Role**: `Mentee`
+Host cung cấp dữ liệu qua IRecommendationSources; các module không reference nhau. Chỉ gợi ý Mentor có tài khoản hoạt động, role Mentor, profile nhận học viên, không Rejected và có dịch vụ Catalog đang hoạt động. Điều kiện này kiểm tra lại khi request, không đợi hết chu kỳ metrics khi tài khoản bị khóa.
 
-### Query Parameters
+Worker làm mới metrics khi khởi động và mỗi phút. Batch cập nhật nguyên tử; lỗi giữ snapshot trước đó. GET metrics đọc snapshot, không tự chạy lại batch. Sources gồm Profiles/Catalog, lịch sử Booking có paymentId và audit xác nhận, buổi Learning Completed, review visible hiện tại. Không dùng các tổng giả/stale trên profile làm nguồn điểm.
 
-| Tên | Kiểu dữ liệu | Bắt buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `page` | `int` | Không | Số trang (mặc định: 1) |
-| `pageSize` | `int` | Không | Số dòng trên 1 trang (mặc định: 20) |
+- acceptanceRate = số Booking từng có audit Confirmed / số Booking đã nhận thanh toán; gồm cả các đơn hiện đang chờ Mentor trong mẫu số.
+- completionRate = số Booking Completed / số Booking từng Confirmed. Gói đang học vẫn thuộc mẫu số.
+- averageResponseTimeMinutes = trung bình chênh lệch từ audit AwaitingMentor đến Confirmed; chưa có cặp audit hợp lệ trả null.
+- totalSessions = số buổi Learning Completed có actualEndUtc <= thời gian server.
+- repeatMenteeCount = số Mentee có ít nhất hai Booking Completed với Mentor.
+- averageRating/totalReviews lấy từ Reviews visible; không review trả null/0. Không mẫu số cho tỷ lệ trả null, không giả định đạt 100%.
 
-### Response (`200 OK`)
+Score = 45% khớp kỹ năng quan tâm + 20% rating/5 + 10% completionRate + 10% acceptanceRate + 5% `1/(1+responseMinutes/60)` + 10% khớp ngân sách. Skill match là tỷ lệ trọng số kỹ năng Mentor có trên tổng sở thích. Sở thích lấy từ tương tác có skillId trong 90 ngày: Click trọng số 2, ViewProfile trọng số 1. Trường chưa có bằng chứng đóng góp 0; score nằm [0,1], không phải xác suất học thành công. Không có lịch sử thì xếp theo bằng chứng hiện có và mentorId; reasons nêu rõ chưa đủ dữ liệu.
 
-```json
-{
-  "items": [
-    {
-      "mentorId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "score": 0.92,
-      "reasons": [
-        "Phù hợp với kỹ năng bạn quan tâm (ReactJS)",
-        "Được đánh giá cao (4.9/5)",
-        "Phù hợp với mức giá bạn thường đặt"
-      ],
-      "metrics": {
-        "averageRating": 4.9,
-        "totalSessions": 120,
-        "acceptanceRate": 0.95
-      }
-    }
-  ],
-  "page": 1,
-  "pageSize": 20,
-  "totalCount": 45,
-  "totalPages": 3
-}
-```
+Ngân sách lấy từ MenteeProfile, so với **tổng giá gói dịch vụ đang hoạt động** cùng loại tiền; không đổi USD sang VND hoặc so giá theo giờ với giá cả gói. Với endpoint for-skill, skill được yêu cầu là sở thích duy nhất và không dùng ngân sách cá nhân.
 
-### Business Rules
-- Score được tính dựa trên: skill match, rating, completion rate, response time, price range fit.
-- Ghi log recommendation để phục vụ A/B testing thuật toán.
+Response mỗi gợi ý: `mentorId`, `score`, `reasons`, `metrics` gồm averageRating, totalSessions, acceptanceRate, completionRate. Metrics chi tiết bổ sung averageResponseTimeMinutes, repeatMenteeCount, totalReviews, lastCalculatedAtUtc. Các trường thiếu mẫu có thể null.
 
----
-
-## 2. Top Mentors cho 1 kỹ năng
-
-Lấy danh sách các Mentor xuất sắc nhất (dựa trên metrics) cho một kỹ năng cụ thể.
-
-- **Method**: `GET`
-- **URL**: `/api/v1/recommendations/mentors/for-skill/{skillId}`
-- **Auth Role**: `Anonymous`, `Authenticated`
-
-### Path Parameters
-- `skillId` (`Guid`): ID của kỹ năng cần tìm Mentor.
-
-### Response (`200 OK`)
+## Tương tác và xu hướng
 
 ```json
-{
-  "items": [
-    {
-      "mentorId": "a17ac10b-58cc-4372-a567-0e02b2c3d470",
-      "metrics": {
-        "averageRating": 5.0,
-        "totalSessions": 45,
-        "completionRate": 1.0
-      }
-    }
-  ],
-  "page": 1,
-  "pageSize": 10,
-  "totalCount": 50,
-  "totalPages": 5
-}
+{ "mentorId": "00000000-0000-0000-0000-000000000001", "skillId": "00000000-0000-0000-0000-000000000002", "interactionType": "Click" }
 ```
 
----
+Chỉ `Click`/`ViewProfile`; skillId có thể bỏ qua nhưng nếu có phải là kỹ năng Catalog hoạt động thuộc Mentor đó. Không có field userId để giả danh. Tương tác không skill vẫn được ghi nhưng không tạo sở thích kỹ năng hoặc trending.
 
-## 3. Ghi nhận tương tác
+Cùng user/mentor/skill/type/ngày UTC chỉ ghi một lần, kể cả gửi đồng thời. Giới hạn 1000 tổ hợp/user/ngày. Trending là số **Mentee khác nhau** đã tương tác với kỹ năng trong 30 ngày, không tăng do gửi lặp, đổi type hoặc click nhiều Mentor cùng kỹ năng. Kỹ năng không hoạt động bị loại; response array `{skillId,name,trendingScore}`. Đây là xu hướng tương tác, không suy đoán số booking theo skill vì dịch vụ hiện chưa có quan hệ skillId đáng tin cậy.
 
-Lưu lại hành vi của Mentee (như click vào gợi ý, xem profile) để cải thiện thuật toán gợi ý (tự động cập nhật mentee interests).
+## Infra và giới hạn
 
-- **Method**: `POST`
-- **URL**: `/api/v1/recommendations/interactions`
-- **Auth Role**: `Mentee`
+Migration AddRecommendationReadModels, lịch sử `recommendations.__EFMigrationsHistory`. Bảng `mentor_metrics`, `interactions`, `recommendation_logs`, không FK liên module. Metrics khóa PostgreSQL giữa nhiều instance, thay snapshot trong transaction; interactions có unique deduplication key và khóa theo user.
 
-### Request Body
-
-| Trường | Kiểu dữ liệu | Bắt buộc | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `mentorId` | `Guid` | Có | ID của Mentor mà Mentee tương tác |
-| `skillId` | `Guid?` | Không | ID kỹ năng liên quan đến tương tác |
-| `interactionType` | `string` | Có | Loại tương tác: `Click`, `ViewProfile` |
-
-```json
-{
-  "mentorId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "skillId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "interactionType": "ViewProfile"
-}
-```
-
-### Response (`204 No Content`)
-
-Không có dữ liệu trả về nếu thành công.
-
----
-
-## 4. Xem Metrics của Mentor
-
-Xem thông tin thống kê, độ tin cậy và điểm số các chỉ số của một Mentor.
-
-- **Method**: `GET`
-- **URL**: `/api/v1/recommendations/mentors/{mentorId}/metrics`
-- **Auth Role**: `Admin`, `Mentor` (Mentor chỉ xem được của chính mình)
-
-### Path Parameters
-- `mentorId` (`Guid`): ID của Mentor.
-
-### Response (`200 OK`)
-
-```json
-{
-  "id": "7fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "mentorId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "acceptanceRate": 0.95,
-  "completionRate": 0.98,
-  "averageResponseTimeMinutes": 15.5,
-  "repeatMenteeCount": 20,
-  "totalSessions": 120,
-  "averageRating": 4.8,
-  "lastCalculatedAtUtc": "2026-09-14T02:00:00Z"
-}
-```
-
-### Business Rules
-- Metrics được tính lại theo batch (thường chạy định kỳ ngầm), không tính lại realtime khi truy vấn.
-- Quyền truy cập: Admin xem được tất cả, Mentor chỉ xem được metrics của chính tài khoản mình.
-
-### Errors (`403 Forbidden`)
-
-Trường hợp Mentor xem metrics của Mentor khác:
-```json
-{
-  "type": "https://tools.ietf.org/html/rfc7807",
-  "title": "Forbidden",
-  "status": 403,
-  "detail": "Bạn không có quyền truy cập dữ liệu này.",
-  "instance": "/api/v1/recommendations/mentors/xxx/metrics"
-}
-```
-
----
-
-## 5. Danh sách kỹ năng đang Hot
-
-Lấy danh sách các kỹ năng đang có xu hướng (trending) được quan tâm hoặc đặt lịch nhiều trong thời gian gần đây.
-
-- **Method**: `GET`
-- **URL**: `/api/v1/recommendations/trending-skills`
-- **Auth Role**: `Anonymous`, `Authenticated`
-
-### Response (`200 OK`)
-
-```json
-[
-  {
-    "skillId": "1fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "name": "System Design",
-    "trendingScore": 85.5
-  },
-  {
-    "skillId": "2fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "name": "ReactJS",
-    "trendingScore": 79.2
-  }
-]
-```
+Batch hiện đọc dữ liệu để dựng snapshot và xếp hạng tập ứng viên trong bộ nhớ. Cần phân lô/incremental khi lượng dữ liệu lớn; đây là thuật toán rules-v1, chưa phải ML/A-B experiment engine. Log lưu IDs/score/algorithmVersion/thời gian để kiểm chứng, chưa có job retention; infra cần chốt thời hạn lưu dữ liệu và monitoring. Không khẳng định chất lượng gợi ý đã được đánh giá trên người dùng thật.
