@@ -14,7 +14,7 @@ Mã nguồn: Payments 7, Reviews 7, Recommendations 5; tổng backend 106 nghi�
 
 ## Infra
 
-- Nền: develop → Booking → Learning → Payments → Reviews → Recommendations. Kiểm tra base/CI trước khi merge, đồng bộ nhánh tiếp theo nếu squash hoặc đổi base. Các module không reference nhau; adapter nằm ở src/Api/Common.
+- Booking #28 đã vào develop tại d7c1d18. Phần còn lại: Learning → Payments → Reviews → Recommendations; các nhánh đã đồng bộ lại từ develop sau lần merge này. Kiểm tra base/CI trước khi merge, đồng bộ nhánh tiếp theo nếu squash hoặc đổi base. Các module không reference nhau; adapter nằm ở src/Api/Common.
 - Migrations 3 schema mới và SQL idempotent tại scripts/migrations/{payments,reviews,recommendations}; hướng dẫn [database-migrations.md](../database-migrations.md). Database từng dựng từ blueprint phải đối chiếu trước.
 - Production không tự migrate. Cần migrations cả Booking/Learning/Payments/Reviews/Recommendations trước khi chạy worker. Không sửa history để bỏ qua migration.
 - Gateway tắt mặc định; cấp secret qua env/secret store theo .env.example, cấu hình exact HTTPS allowlist và webhook merchant. PayOS gọi tiền thật, VNPAY mặc định Sandbox. Không commit secret và không bật thu tiền khi chưa có đối soát vận hành.
