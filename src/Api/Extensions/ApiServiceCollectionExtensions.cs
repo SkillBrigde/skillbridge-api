@@ -79,6 +79,7 @@ public static class ApiServiceCollectionExtensions
         services.AddSchedulingComposition();
         services.AddBookingComposition();
         services.AddLearningComposition();
+        services.AddPaymentsComposition();
 
         return services;
     }
