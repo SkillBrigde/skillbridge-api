@@ -26,6 +26,8 @@ using SkillBridge.Modules.Learning;
 using SkillBridge.Modules.Learning.Infrastructure;
 using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Messaging.Infrastructure;
+using SkillBridge.Modules.Payments;
+using SkillBridge.Modules.Payments.Infrastructure;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
 using SkillBridge.Modules.Scheduling;
@@ -47,6 +49,7 @@ internal static class Program
             SchedulingChecks.CheckDomain();
             BookingChecks.CheckDomain();
             LearningChecks.CheckDomain();
+            PaymentChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
@@ -177,6 +180,7 @@ internal static class Program
         new SchedulingModule().AddServices(services, config);
         new BookingModule().AddServices(services, config);
         new LearningModule().AddServices(services, config);
+        new PaymentsModule().AddServices(services, config);
         new MessagingModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
@@ -186,6 +190,7 @@ internal static class Program
         CheckModel(scope.ServiceProvider.GetRequiredService<SchedulingDbContext>(), "scheduling");
         CheckModel(scope.ServiceProvider.GetRequiredService<BookingDbContext>(), "booking");
         CheckModel(scope.ServiceProvider.GetRequiredService<LearningDbContext>(), "learning");
+        CheckModel(scope.ServiceProvider.GetRequiredService<PaymentsDbContext>(), "payments");
         CheckModel(scope.ServiceProvider.GetRequiredService<MessagingDbContext>(), "messaging");
     }
 
