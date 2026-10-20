@@ -3,7 +3,7 @@
 Tài liệu này đóng vai trò là **Hợp đồng giao tiếp (API Contract)** chính thức giữa Backend (.NET 10 API) và Frontend (Next.js 16 BFF Web Portal).
 Mọi thay đổi về Request Body, Response Schema hoặc Status Code bắt buộc phải được cập nhật tại thư mục này trước khi triển khai code.
 
-> Danh mục gồm cả thiết kế chưa triển khai, không xác nhận đã có 46 bảng hay toàn bộ tích hợp. Xem [tiến độ thực tế](../backend-progress.md). Đã nối Booking → Learning; Payments/gateway thật còn thiếu. Relay nội bộ chưa phải RabbitMQ. Phí, hoàn tiền và hạn khiếu nại chưa chốt; giải ngân tự động bị khóa.
+> Có đủ mã nguồn 106 nghiệp vụ REST + 1 Hub trong nhánh tổng hợp; OpenAPI có 107 cặp method/path do VNPAY GET alias. Xem [tiến độ và giới hạn](../backend-progress.md). Gateway cần cấu hình/kiểm chứng merchant thật; rút tiền, giải ngân và hoàn tiền tự động đang khóa. Relay nội bộ chưa phải RabbitMQ. Bảng dưới giữ cả mục tiêu thiết kế, không xác nhận đúng 46 bảng đã chạy.
 
 ---
 
@@ -18,12 +18,12 @@ Toàn bộ hệ thống được chia thành **10 Modules độc lập**, mỗi 
 | **3. Catalog** | `catalog` | `categories`, `skills`, `tags`, `skill_tags`, `mentor_services` | Từ điển kỹ năng phân cấp cây, gắn nhãn Tags, đóng gói 3 gói dịch vụ chuẩn hóa (Tier 1-3). | 17 | [`catalog-api.md`](./catalog-api.md), [`mentor-services-contract.md`](./mentor-services-contract.md) |
 | **4. Scheduling** | `scheduling` | `scheduling_settings`, `availability_rules`, `availability_slots`, `time_offs` | Cấu hình lịch rảnh tuần lặp lại, tự động sinh bookable slots, chặn lịch nghỉ đột xuất (Time-off). | 10 | [`scheduling-api.md`](./scheduling-api.md) |
 | **5. Booking** | `booking` | `bookings`, `booking_sessions`, `reschedule_requests`, `booking_audit_logs`, `outbox_messages` | Đặt lịch, khảo sát Intake Form 3 câu hỏi, giữ nguyên tử PostgreSQL tối đa 10 phút, máy trạng thái State Machine. | 9 | [`booking-api.md`](./booking-api.md) |
-| **6. Payments** | `payments` | `wallets`, `wallet_transactions`, `payment_orders`, `payment_webhooks_audit`, `escrow_contracts`, `payout_requests` | **Dual Gateway (PayOS VietQR Napas 24/7 tiền thật + VNPAY Sandbox)**, Két Ký Quỹ Escrow, Sổ cái kép, Rút tiền. | 7 | [`payments-api.md`](./payments-api.md) |
+| **6. Payments** | `payments` | `wallets`, `payment_orders`, `gateway_receipts`, `escrows`, `ledger_entries` | Dual gateway, ledger và giữ tiền nội bộ; rút tiền bị khóa khi chưa chốt chính sách. | 7 | [`payments-api.md`](./payments-api.md) |
 | **7. Learning** | `learning` | `learning_sessions`, `session_attendances`, `session_notes`, `session_materials`, `session_action_items` | Phòng học Google Meet, tự động điểm danh, ghi chú 2 chiều, tài liệu đính kèm, giao bài tập hành động. | 17 | [`learning-api.md`](./learning-api.md) |
 | **8. Messaging** | `messaging` | `conversations`, `conversation_participants`, `messages`, `message_reads`, `message_attachments` | Chat 1-1 thời gian thực, SignalR Hub, phân trang Cursor, tự động bắt cờ chống giao dịch ngoài sàn. | 8 + 1 Hub | [`messaging-api.md`](./messaging-api.md) |
-| **9. Reviews** | `reviews` | `reviews`, `mentor_rating_summaries`, `disputes` | Đánh giá 4 tiêu chí (Tổng quan, Giao tiếp, Chuyên môn, Hữu ích), VIP badge, Phán xử tranh chấp SLA 48h. | 7 | [`reviews-api.md`](./reviews-api.md) |
-| **10. Recommendations**| `recommendations` | `mentor_recommendation_metrics`, `mentee_interaction_logs`, `recommendation_logs` | Gợi ý Mentor cá nhân hóa dựa trên sở thích, theo dõi xu hướng Trending Skills, Dashboard hiệu suất. | 5 | [`recommendations-api.md`](./recommendations-api.md) |
-| **TỔNG CỘNG** | **10 Schemas** | **46 Bảng Chuyên Trách** | **Kiến Trúc Chuẩn Doanh Nghiệp .NET 10 Modular Monolith** | **106 REST + 1 Hub theo kế hoạch** | |
+| **9. Reviews** | `reviews` | `reviews`, `outbox_messages` | Đánh giá 4 tiêu chí sau khi hoàn tất gói, sửa 48 giờ, phản hồi và tổng hợp điểm. | 7 | [`reviews-api.md`](./reviews-api.md) |
+| **10. Recommendations**| `recommendations` | `mentor_metrics`, `interactions`, `recommendation_logs` | Gợi ý Mentor cá nhân hóa dựa trên sở thích, theo dõi xu hướng Trending Skills, Dashboard hiệu suất. | 5 | [`recommendations-api.md`](./recommendations-api.md) |
+| **TỔNG CỘNG** | **10 Schemas** | **46 Bảng Chuyên Trách** | **Kiến Trúc Chuẩn Doanh Nghiệp .NET 10 Modular Monolith** | **106 nghiệp vụ REST + 1 Hub; thêm VNPAY GET alias** | |
 
 ---
 
@@ -39,7 +39,7 @@ Toàn bộ hệ thống được chia thành **10 Modules độc lập**, mỗi 
 
 ### Định dạng phản hồi thực tế
 
-Identity và Catalog trả DTO trực tiếp theo các contract chi tiết; các lệnh không có dữ liệu trả `204 No Content`. Không bọc thêm envelope `isSuccess/data/error`. Các module chưa triển khai cần chốt contract trước khi bổ sung API.
+Identity và Catalog trả DTO trực tiếp theo các contract chi tiết; các lệnh không có dữ liệu trả `204 No Content`. Không bọc thêm envelope `isSuccess/data/error`. Các giới hạn tích hợp và chính sách được ghi trong từng contract.
 
 Ví dụ đăng ký (`201 Created`):
 ```json
