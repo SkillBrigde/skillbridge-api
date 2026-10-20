@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using SkillBridge.BuildingBlocks.Results;
 
 namespace SkillBridge.BuildingBlocks.Messaging.Behaviors;
 
@@ -29,6 +30,30 @@ public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
         {
             var response = await next();
             stopwatch.Stop();
+
+            if (response is Result { IsFailure: true } result)
+            {
+                if (result.Error is ValidationError valError)
+                {
+                    var details = string.Join("; ", valError.Errors.Select(e => $"{e.Key}: [{string.Join(", ", e.Value)}]"));
+                    _logger.LogWarning(
+                        "Request {RequestName} không hợp lệ ({ElapsedMilliseconds} ms): {Errors}",
+                        requestName,
+                        stopwatch.ElapsedMilliseconds,
+                        details);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Request {RequestName} thất bại ({ElapsedMilliseconds} ms): [{ErrorCode}] {ErrorMessage}",
+                        requestName,
+                        stopwatch.ElapsedMilliseconds,
+                        result.Error.Code,
+                        result.Error.Description);
+                }
+
+                return response;
+            }
 
             if (stopwatch.ElapsedMilliseconds > 500)
             {
