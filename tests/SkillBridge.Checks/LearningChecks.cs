@@ -240,7 +240,7 @@ internal static class LearningChecks
         }
         await using (var scope = services.CreateAsyncScope())
         {
-            IEnumerable<IBookingLifecycleConsumer> fault = [new FailAfterDelivery(scope.ServiceProvider.GetRequiredService<IBookingLifecycleConsumer>())];
+            IEnumerable<IBookingLifecycleConsumer> fault = [new FailAfterDelivery(scope.ServiceProvider.GetServices<IBookingLifecycleConsumer>().ToArray())];
             var relay = ActivatorUtilities.CreateInstance<BookingLifecycleRelay>(scope.ServiceProvider, fault, NullLogger<BookingLifecycleRelay>.Instance);
             Program.Check(await relay.DispatchOneAsync(default), "Fault relay did not select the test event.");
         }
@@ -257,13 +257,16 @@ internal static class LearningChecks
         Program.Check(await check.ServiceProvider.GetRequiredService<BookingDbContext>().OutboxMessages.AnyAsync(x => x.Id == id && x.ProcessedOnUtc != null), "Outbox retry did not acknowledge the already committed inbox receipt.");
     }
 
-    private sealed class FailAfterDelivery(IBookingLifecycleConsumer inner) : IBookingLifecycleConsumer
+    private sealed class FailAfterDelivery(IReadOnlyList<IBookingLifecycleConsumer> consumers) : IBookingLifecycleConsumer
     {
         public async Task<Result> ConsumeAsync(Guid eventId, Guid bookingId, CancellationToken ct)
         {
-            var result = await inner.ConsumeAsync(eventId, bookingId, ct);
-            if (result.IsSuccess) throw new IOException("Simulated interruption after inbox commit.");
-            return result;
+            foreach (var consumer in consumers)
+            {
+                var result = await consumer.ConsumeAsync(eventId, bookingId, ct);
+                if (result.IsFailure) return result;
+            }
+            throw new IOException("Simulated interruption after inbox commit.");
         }
     }
     private sealed class AdjustableClock : TimeProvider
