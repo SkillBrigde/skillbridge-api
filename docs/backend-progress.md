@@ -27,10 +27,10 @@ Tổng **106 nghiệp vụ REST + 1 Hub**. OpenAPI host thật có **107 cặp H
 
 ## Nhánh và thứ tự phụ thuộc
 
-- Scheduling #27, Booking #28, Learning #29 và Payments #30 đã squash merge vào develop tại `cac16bd`, `d7c1d18`, `cd0f4e0` và `25b16d2`.
-- Reviews #31 đã đồng bộ develop sau khi Payments được merge, giữ đăng ký Reviews và kiểm thử bằng chứng hoàn tất, quyền sở hữu, giới hạn sửa 48 giờ. Không đưa Recommendations ngược vào nhánh Reviews.
-- Nhánh `dang/recommendations` đã đồng bộ từ `dang/reviews`. Reviews lấy develop làm base; Recommendations lấy Reviews làm base để diff tập trung vào module mới.
-- Phần còn cần review/merge theo thứ tự Reviews → Recommendations. Chưa tự merge hai PR này vào develop/main. Khi squash merge hoặc đổi base, phải đồng bộ nhánh kế tiếp và kiểm tra lại conflict/CI.
+- Scheduling #27, Booking #28, Learning #29, Payments #30 và Reviews #31 đã squash merge vào develop tại `cac16bd`, `d7c1d18`, `cd0f4e0`, `25b16d2` và `81683fe`.
+- Recommendations #32 đã đồng bộ develop sau khi Reviews được merge, giữ đăng ký module, migration, metrics worker và toàn bộ kiểm thử gợi ý/phân quyền/chống trùng tương tác.
+- Nhánh `dang/recommendations` và PR #32 hiện lấy develop làm base. Đây là PR cuối trong chuỗi tích hợp 19 API bổ sung.
+- PR #32 còn cần review/merge; chưa tự merge vào develop/main hoặc deploy. Sau khi merge vẫn cần nghiệm thu các giới hạn môi trường/chính sách nêu dưới đây.
 
 ## Bằng chứng kiểm tra ngày 20/10/2026
 
