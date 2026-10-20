@@ -11,6 +11,7 @@ public static class ApiApplicationExtensions
         app.UseCors(ApiServiceCollectionExtensions.CorsPolicyName);
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
 
         return app;
     }

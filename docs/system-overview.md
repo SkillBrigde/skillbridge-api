@@ -125,9 +125,9 @@ src/Modules/{ModuleName}/
 │
 ├── Application/                    <-- Tầng Ứng Dụng, nhóm theo nghiệp vụ
 │   └── {Feature}/                  <-- Ví dụ Identity: Auth, Users
-│       ├── {UseCase}/{UseCase}.cs   <-- Command/Query, validator, handler
-│       ├── Requests/               <-- Hợp đồng đầu vào HTTP
-│       └── Responses/              <-- Hợp đồng dữ liệu API trả về
+│       ├── {UseCase}.cs   <-- Command/Query, validator, handler
+│       ├── DTOs/Requests/               <-- Hợp đồng đầu vào HTTP
+│       └── DTOs/Responses/              <-- Hợp đồng dữ liệu API trả về
 │
 ├── Infrastructure/                 <-- Tầng Hạ Tầng
 │   ├── Persistence/

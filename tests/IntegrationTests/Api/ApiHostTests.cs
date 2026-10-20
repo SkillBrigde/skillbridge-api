@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SkillBridge.Api.Endpoints;
@@ -63,16 +65,17 @@ public sealed class ApiHostTests
     }
 
     [Theory]
-    [InlineData("/health/live")]
-    [InlineData("/health/ready")]
-    public async Task Health_routes_keep_the_existing_self_check(string path)
+    [InlineData("/health/live", HttpStatusCode.OK, "Healthy")]
+    [InlineData("/health/ready", HttpStatusCode.ServiceUnavailable, "Unhealthy")]
+    public async Task Readiness_includes_database_health_while_liveness_remains_independent(
+        string path, HttpStatusCode expectedStatus, string expectedBody)
     {
         await using var app = await StartAppAsync();
         using var client = app.GetTestClient();
         using var response = await client.GetAsync(path);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(expectedBody, await response.Content.ReadAsStringAsync());
     }
 
     [Theory]
@@ -148,6 +151,14 @@ public sealed class ApiHostTests
 
         var modules = ModuleRegistry.Create();
         builder.Services.AddApiServices(builder.Configuration, modules);
+        // Exercise the real host registration and route predicates without requiring a database.
+        builder.Services.PostConfigure<HealthCheckServiceOptions>(options =>
+        {
+            var database = options.Registrations.Single(check => check.Name == "database");
+            options.Registrations.Remove(database);
+            options.Registrations.Add(new HealthCheckRegistration("database",
+                _ => new UnavailableDatabase(), HealthStatus.Unhealthy, database.Tags));
+        });
         var app = builder.Build();
         app.UseApiPipeline();
         app.MapApiDocumentation();
@@ -156,5 +167,11 @@ public sealed class ApiHostTests
         // Production startup does not initialize modules or connect to their databases.
         await app.StartAsync();
         return app;
+    }
+
+    private sealed class UnavailableDatabase : IHealthCheck
+    {
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default) =>
+            Task.FromResult(HealthCheckResult.Unhealthy("Fixture database unavailable."));
     }
 }

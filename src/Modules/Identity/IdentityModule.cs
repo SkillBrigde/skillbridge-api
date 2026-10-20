@@ -1,12 +1,17 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using SkillBridge.BuildingBlocks.Modules;
+using SkillBridge.Modules.Identity.Application;
 using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
+using SkillBridge.Modules.Identity.Infrastructure;
 using SkillBridge.Modules.Identity.Infrastructure.Persistence;
+
 namespace SkillBridge.Modules.Identity;
 
 public sealed class IdentityModule : ModuleDefinition
@@ -16,6 +21,8 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton<DevelopmentPasswordResetEmailSender>();
+        services.TryAddSingleton<IPasswordResetEmailSender>(provider => provider.GetRequiredService<DevelopmentPasswordResetEmailSender>());
         var connectionString = configuration.GetConnectionString("Database");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -29,6 +36,27 @@ public sealed class IdentityModule : ModuleDefinition
                 // Đặt bảng lịch sử migration vào đúng schema 'identity' của module
                 npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", IdentityDbContext.Schema);
             });
+        });
+
+        services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+        {
+            options.Events.OnTokenValidated = async context =>
+            {
+                var rawId = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                    ?? context.Principal?.FindFirst("sub")?.Value;
+                var stamp = context.Principal?.FindFirst("security_stamp")?.Value;
+                if (!Guid.TryParse(rawId, out var userId) || string.IsNullOrEmpty(stamp))
+                {
+                    context.Fail("Invalid session.");
+                    return;
+                }
+
+                var dbContext = context.HttpContext.RequestServices.GetRequiredService<IdentityDbContext>();
+                var valid = await dbContext.Users.AsNoTracking().AnyAsync(
+                    user => user.Id == userId && user.IsActive && user.SecurityStamp == stamp,
+                    context.HttpContext.RequestAborted);
+                if (!valid) context.Fail("Session revoked.");
+            };
         });
 
         services.AddOptions<LoginRateLimitOptions>()

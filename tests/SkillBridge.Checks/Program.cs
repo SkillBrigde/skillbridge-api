@@ -13,6 +13,8 @@ using SkillBridge.BuildingBlocks.Messaging.Behaviors;
 using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Booking;
+using SkillBridge.Modules.Booking.Infrastructure;
 using SkillBridge.Modules.Catalog;
 using SkillBridge.Modules.Catalog.Application;
 using SkillBridge.Modules.Catalog.Domain;
@@ -20,6 +22,20 @@ using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Persistence;
+using SkillBridge.Modules.Learning;
+using SkillBridge.Modules.Learning.Infrastructure;
+using SkillBridge.Modules.Messaging;
+using SkillBridge.Modules.Messaging.Infrastructure;
+using SkillBridge.Modules.Payments;
+using SkillBridge.Modules.Payments.Infrastructure;
+using SkillBridge.Modules.Profiles;
+using SkillBridge.Modules.Profiles.Infrastructure;
+using SkillBridge.Modules.Recommendations;
+using SkillBridge.Modules.Recommendations.Infrastructure;
+using SkillBridge.Modules.Reviews;
+using SkillBridge.Modules.Reviews.Infrastructure;
+using SkillBridge.Modules.Scheduling;
+using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Checks;
 
@@ -31,7 +47,15 @@ internal static class Program
         {
             Check(args.Length == 0 || args.SequenceEqual(["--database"]), "Usage: dotnet run --project tests/SkillBridge.Checks [-- --database]");
             await CheckResultsAsync();
+            await IdentityRecoveryChecks.CheckDomainAsync();
             CheckDomain();
+            MentorServiceChecks.CheckDomain();
+            SchedulingChecks.CheckDomain();
+            BookingChecks.CheckDomain();
+            LearningChecks.CheckDomain();
+            PaymentChecks.CheckDomain();
+            ReviewChecks.CheckDomain();
+            RecommendationChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
@@ -158,10 +182,26 @@ internal static class Program
         var services = new ServiceCollection().AddLogging();
         new IdentityModule().AddServices(services, config);
         new CatalogModule().AddServices(services, config);
+        new ProfilesModule().AddServices(services, config);
+        new SchedulingModule().AddServices(services, config);
+        new BookingModule().AddServices(services, config);
+        new LearningModule().AddServices(services, config);
+        new PaymentsModule().AddServices(services, config);
+        new ReviewsModule().AddServices(services, config);
+        new RecommendationsModule().AddServices(services, config);
+        new MessagingModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         CheckModel(scope.ServiceProvider.GetRequiredService<IdentityDbContext>(), "identity");
         CheckModel(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), "catalog");
+        CheckModel(scope.ServiceProvider.GetRequiredService<ProfilesDbContext>(), "profiles");
+        CheckModel(scope.ServiceProvider.GetRequiredService<SchedulingDbContext>(), "scheduling");
+        CheckModel(scope.ServiceProvider.GetRequiredService<BookingDbContext>(), "booking");
+        CheckModel(scope.ServiceProvider.GetRequiredService<LearningDbContext>(), "learning");
+        CheckModel(scope.ServiceProvider.GetRequiredService<PaymentsDbContext>(), "payments");
+        CheckModel(scope.ServiceProvider.GetRequiredService<ReviewsDbContext>(), "reviews");
+        CheckModel(scope.ServiceProvider.GetRequiredService<RecommendationsDbContext>(), "recommendations");
+        CheckModel(scope.ServiceProvider.GetRequiredService<MessagingDbContext>(), "messaging");
     }
 
     private static void CheckModel(DbContext context, string schema)

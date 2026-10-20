@@ -23,7 +23,10 @@ public static class HostEndpoints
         {
             Predicate = check => check.Tags.Contains("live")
         });
-        app.MapHealthChecks("/health/ready");
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready")
+        });
 
         app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
         {

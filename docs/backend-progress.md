@@ -1,23 +1,60 @@
 # Tiến độ backend SkillBridge
 
-Cập nhật: 24/09/2026. Đây là kiểm kê mã nguồn và phạm vi triển khai đợt đầu; tài liệu thiết kế không đồng nghĩa tính năng đã hoạt động. Endpoint `/_module` chỉ xác nhận module được đăng ký.
+Cập nhật 20/10/2026, mã nguồn tổng hợp tại `dang/recommendations`. Đã triển khai phần mã nguồn của 19 nghiệp vụ còn lại; chưa đồng nghĩa đã merge vào develop, triển khai production hoặc kiểm chứng thanh toán tiền thật. Endpoint `/_module` không tính API nghiệp vụ.
 
-## Kiểm kê 10 module
+## Phạm vi hiện có
 
-| Module | Trạng thái đầu đợt | Phạm vi đợt này / điều kiện tiếp theo |
-|---|---|---|
-| Identity | Có 8 API nghiệp vụ, mô hình EF và migration | Củng cố xác thực, validation, refresh token; thêm cập nhật hồ sơ cơ bản và chi tiết user cho Admin, tổng 10 API |
-| Catalog | Chỉ có module stub | Triển khai 11 API categories, skills, tags theo contract; domain, EF, migration và phân quyền Admin |
-| Profiles | Chỉ có module stub | Hồ sơ Mentor/Mentee, quyền sở hữu và xử lý đăng ký sau khi thống nhất hợp đồng sự kiện |
-| Scheduling | Chỉ có module stub | Cài đặt, lịch tuần, ngày nghỉ, sinh slot; cần thống nhất múi giờ và quy tắc slot |
-| Booking | Chỉ có module stub | Cần dịch vụ của Mentor, slot, intake form, khóa giữ chỗ và trạng thái thanh toán đáng tin cậy |
-| Payments | Chỉ có module stub | Cần contract Booking, sổ giao dịch, idempotency, chữ ký gateway và quy tắc escrow |
-| Learning | Chỉ có module stub | Tạo buổi học từ booking đã xác nhận, kiểm tra người tham gia, điểm danh và tài liệu |
-| Messaging | Chỉ có module stub | Hội thoại, tin nhắn lưu bền và kiểm tra thành viên trước REST/SignalR |
-| Reviews | Chỉ có module stub | Cần bằng chứng session hoàn tất, một review/booking, cửa sổ sửa 48 giờ và thống kê |
-| Recommendations | Chỉ có module stub | Cần dữ liệu kỹ năng, hồ sơ, booking, session, review và tương tác thực tế |
+| Module | REST nghiệp vụ | Phạm vi chính |
+|---|---:|---|
+| Identity | 12 | Auth, phiên, user/Admin, password recovery; email production cần provider |
+| Catalog | 17 | Taxonomy và 6 API dịch vụ Mentor; snapshot tổng giá gói 1–52 buổi |
+| Profiles | 14 | Hồ sơ, kỹ năng, kinh nghiệm, chứng chỉ, xác minh |
+| Scheduling | 10 | Settings/rules, timezone/DST, slots/time-offs, giữ/xác nhận/nhả/đổi nhiều slot |
+| Booking | 9 | Gói nhiều buổi, quyền, idempotency, audit, dời lịch và phục hồi giữ chỗ |
+| Payments | 7 | Wallet/escrow, hai gateway, webhook có chữ ký, ledger và phục hồi; withdraw bị khóa theo chính sách |
+| Learning | 17 | 16 route theo contract + download có quyền; điểm danh, notes, tasks, materials |
+| Messaging | 8 + 1 Hub | REST/SignalR, quyền thành viên, bảo vệ phiên |
+| Reviews | 7 | Bằng chứng hoàn tất cả gói, một review/booking, sửa 48 giờ, reply, summary và pending |
+| Recommendations | 5 | Gợi ý theo dữ liệu thật, metrics batch, tương tác chống trùng và trending |
 
-Số API ở trên không tính endpoint probe. Bắt đầu đợt này chỉ Identity có migration; không có căn cứ coi 46 bảng trong blueprint là đã triển khai.
+Tổng **106 nghiệp vụ REST + 1 Hub**. OpenAPI host thật có **107 cặp HTTP method/path** do VNPAY IPN có GET alias ngoài POST webhook. Số 106 gồm 6 mentor services và 1 download bổ sung so với danh mục 99 ban đầu. Payments có route rút tiền nhưng chủ đích trả 409 cho tới khi chốt chính sách; không diễn giải con số này thành 106 luồng production hoàn tất.
+
+## Quyết định giữ nguyên
+
+- Hỗ trợ gói nhiều buổi ngay, lấy giá/tổng số buổi từ snapshot Catalog, giữ nguyên tử cả gói và không tin số tiền/trạng thái paid do client khai.
+- **Khóa giải ngân, rút tiền và hoàn tiền tự động.** Phí nền tảng, hoàn tiền và hạn khiếu nại chưa chốt. Không có switch cấu hình tự mở khóa; fee/net trong escrow trả null, hủy đã trả tiền dừng ReviewRequired/RefundReview.
+- Nhánh `dang/<feature-name>` tiếng Anh; commit tiếng Việt và tách theo từng phần liên quan.
+
+## Nhánh và thứ tự phụ thuộc
+
+- Scheduling #27, Booking #28, Learning #29, Payments #30 và Reviews #31 đã squash merge vào develop tại `cac16bd`, `d7c1d18`, `cd0f4e0`, `25b16d2` và `81683fe`.
+- Recommendations #32 đã đồng bộ develop sau khi Reviews được merge, giữ đăng ký module, migration, metrics worker và toàn bộ kiểm thử gợi ý/phân quyền/chống trùng tương tác.
+- Nhánh `dang/recommendations` và PR #32 hiện lấy develop làm base. Đây là PR cuối trong chuỗi tích hợp 19 API bổ sung.
+- PR #32 còn cần review/merge; chưa tự merge vào develop/main hoặc deploy. Sau khi merge vẫn cần nghiệm thu các giới hạn môi trường/chính sách nêu dưới đây.
+
+## Bằng chứng kiểm tra ngày 20/10/2026
+
+Release build --warnaserror: 0 warning/error; format verify đạt. PostgreSQL 18, Redis thật trong môi trường thử nghiệm cô lập:
+
+- SkillBridge.Checks chạy domain, migration/schema/FK, HTTP/security, REST/SignalR và các luồng cả 10 module.
+- Payments: ký/verify theo giao thức; callback giả bị từ chối, callback đồng thời không nhân tiền; ledger cân bằng, callback muộn giữ tiền để đối soát, crash sau Booking commit vẫn phục hồi bằng cùng paymentId. PayOS HTTP được giả lập, chưa gọi merchant tiền thật.
+- Reviews: đủ gói mới review, sai session/mentor không qua, một request thắng khi tạo đồng thời; sửa trước 48h, khóa đúng mốc; public không lộ ID người học/booking; summary phản ánh sửa điểm.
+- Recommendations: metrics từ Learning/Reviews thật, đúng role/chủ sở hữu, khớp skill, score đổi theo sở thích; spam đồng thời không tăng trending; Mentor bị khóa bị loại ngay dù snapshot còn tồn tại.
+- xUnit: **3 architecture + 117 integration tests**, đạt và không bỏ qua Redis. Các checks nghiệp vụ chạy bổ sung trong SkillBridge.Checks, không cộng nhầm vào số 120 xUnit.
+- Host thật trên database trống: migrations cả 10 module, health live/ready, OpenAPI 107 method/path, rate limit và lượt worker đầu không lỗi.
+- Không migrate database đang dùng của người dùng; database/container/process thử nghiệm đã được dọn. Stash code cũ vẫn giữ nguyên.
+
+## Bàn giao và phần còn phụ thuộc môi trường/chính sách
+
+Web xem [Payments](api/payments-api.md), [Reviews](api/reviews-api.md), [Recommendations](api/recommendations-api.md). BFF gửi JWT, Idempotency-Key khi tạo Booking/Payment; returnUrl gateway không phải bằng chứng đã trả tiền; render comment/reply dạng text; xử lý null metrics và 409 DisbursementLocked.
+
+Infra xem [.env.example](../.env.example), [migration](database-migrations.md) và [bàn giao 19 API](handoffs/final-19-api.md). Gateway tắt mặc định. Cần merchant credentials, webhook HTTPS và kiểm chứng VNPAY Sandbox/PayOS thực tế. Chưa chứng minh giao dịch tiền thật, sao kê/hoàn tiền hoặc ngân hàng cung cấp escrow riêng.
+
+Các giới hạn ngoài 19 API: relay nội bộ PostgreSQL chưa phải RabbitMQ; dispatcher outbox toàn hệ thống chưa hoàn tất. Link Meet do Mentor cung cấp, điểm danh API không phải telemetry cuộc gọi. Files bytea tối đa 10 MiB, chưa có object storage/malware scan. Email production, monitoring, multi-instance SignalR, chính sách retention, load test và web/infra đầu cuối còn cần nghiệm thu. Recommendations rules-v1 chạy batch/tập ứng viên trong bộ nhớ, chưa có kiểm chứng chất lượng ML.
+
+## Ghi chú lịch sử
+
+Phần dưới là kiểm kê **đợt đầu tháng 9/2026**, giữ để tra cứu các điểm bất nhất ban đầu; trạng thái hiện tại lấy từ các bảng phía trên.
 
 ## Các điểm tài liệu chưa thống nhất
 

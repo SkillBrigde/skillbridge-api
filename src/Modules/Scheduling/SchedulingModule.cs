@@ -1,4 +1,14 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SkillBridge.BuildingBlocks.Modules;
+using SkillBridge.Modules.Scheduling.Application;
+using SkillBridge.Modules.Scheduling.Endpoints;
+using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Modules.Scheduling;
 
@@ -6,4 +16,41 @@ public sealed class SchedulingModule : ModuleDefinition
 {
     public override string Name => "Scheduling";
     public override string RoutePrefix => "scheduling";
+
+    public override void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Database")
+            ?? throw new InvalidOperationException("ConnectionStrings:Database is required.");
+
+        services.AddDbContext<SchedulingDbContext>(options => options.UseNpgsql(connectionString,
+            npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)));
+        services.TryAddScoped<IMentorDirectory, UnavailableMentorDirectory>();
+        services.AddScoped<AvailabilityRuleStore>();
+        services.AddScoped<SlotStore>();
+        services.AddScoped<SlotService>();
+        services.AddScoped<SlotReservations>();
+    }
+
+    public override void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        base.MapEndpoints(endpoints);
+        endpoints.MapSlotEndpoints();
+
+        var group = endpoints.MapGroup("/api/v1/scheduling")
+            .WithTags("Scheduling")
+            .RequireAuthorization(policy => policy.RequireRole("Mentor"));
+
+        group.MapGetSchedulingSettings();
+        group.MapUpdateSchedulingSettings();
+        group.MapGetAvailabilityRules();
+        group.MapAddAvailabilityRule();
+        group.MapUpdateAvailabilityRule();
+        group.MapRemoveAvailabilityRule();
+    }
+
+    public override async Task InitializeAsync(IServiceProvider serviceProvider)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<SchedulingDbContext>().Database.MigrateAsync();
+    }
 }

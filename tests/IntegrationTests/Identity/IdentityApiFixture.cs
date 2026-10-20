@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Threading.RateLimiting;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -11,17 +12,13 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SkillBridge.BuildingBlocks.Pagination;
 using SkillBridge.BuildingBlocks.RateLimiting;
 using SkillBridge.BuildingBlocks.Results;
-using SkillBridge.BuildingBlocks.Results.Pagination;
 using SkillBridge.BuildingBlocks.Security;
-using SkillBridge.Modules.Identity.Application.Auth.Login;
-using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
-using SkillBridge.Modules.Identity.Application.Auth.Register;
-using SkillBridge.Modules.Identity.Application.Auth.Responses;
-using SkillBridge.Modules.Identity.Application.Users.GetCurrentUser;
-using SkillBridge.Modules.Identity.Application.Users.GetUsers;
-using SkillBridge.Modules.Identity.Application.Users.Responses;
+using SkillBridge.Modules.Identity.Application.Auth;
+using SkillBridge.Modules.Identity.Application.Users;
+using SkillBridge.Modules.Identity.Application.Users.DTOs.Responses;
 using SkillBridge.Modules.Identity.Endpoints;
 using SkillBridge.Modules.Identity.Endpoints.RateLimiting;
 namespace SkillBridge.IntegrationTests.Identity;
@@ -51,6 +48,13 @@ public sealed class IdentityApiFixture : IAsyncLifetime
         builder.Services.AddSingleton(sender);
         builder.Services.AddOptions<LoginRateLimitOptions>();
         builder.Services.AddSingleton<IRateLimitStore>(RateLimiter);
+        builder.Services.AddSingleton(new JwtSettings());
+        builder.Services.AddRateLimiter(options => options.AddPolicy("auth", _ =>
+            RateLimitPartition.GetFixedWindowLimiter("fixture", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = int.MaxValue,
+                Window = TimeSpan.FromMinutes(1)
+            })));
         _app = builder.Build();
         _app.Use(async (context, next) =>
         {
@@ -59,6 +63,7 @@ public sealed class IdentityApiFixture : IAsyncLifetime
         });
         _app.UseAuthentication();
         _app.UseAuthorization();
+        _app.UseRateLimiter();
         _app.MapAuthEndpoints();
         _app.MapUsersEndpoints();
         await _app.StartAsync();
@@ -74,7 +79,7 @@ public sealed class IdentityApiFixture : IAsyncLifetime
     public class RecordingSender : DispatchProxy
     {
         public object? LastRequest { get; set; }
-        public Result<AuthResponse>? AuthResultOverride { get; set; }
+        public Result<AuthenticationResult>? AuthResultOverride { get; set; }
 
         protected override object Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -84,20 +89,24 @@ public sealed class IdentityApiFixture : IAsyncLifetime
             LastRequest = request;
             return request switch
             {
-                RegisterUserCommand or LoginCommand or RefreshTokenCommand =>
-                    Task.FromResult(AuthResultOverride ?? Result<AuthResponse>.Success(new AuthResponse(
+                RegisterUserCommand => Task.FromResult(Result<Guid>.Success(UserId)),
+                LoginCommand or RefreshTokenCommand =>
+                    Task.FromResult(AuthResultOverride ?? Result<AuthenticationResult>.Success(new AuthenticationResult(
                         UserId, "fixture@example.test", "Fixture User", "Mentee",
                         "fixture-access-token", "fixture-refresh-token", 900))),
-                GetCurrentUserQuery => Task.FromResult(Result<UserResponse>.Success(User())),
-                GetUsersQuery => Task.FromResult(Result<PagedResult<UserResponse>>.Success(
-                    PagedResult<UserResponse>.Create([User()], 1, 20, 1))),
+                GetCurrentUserQuery => Task.FromResult(Result<CurrentUserResponse>.Success(new CurrentUserResponse(UserId, "fixture@example.test", "Fixture User", "Mentee", true))),
+                GetUserQuery => Task.FromResult(Result<UserDetailsResponse>.Success(new UserDetailsResponse(
+                    UserId, "fixture@example.test", "Fixture User", "Mentee", true, false, null, 0,
+                    DateTimeOffset.Parse("2026-01-01T00:00:00Z"), null))),
+                GetUsersQuery => Task.FromResult(Result<PagedResult<UserSummaryResponse>>.Success(
+                    PagedResult<UserSummaryResponse>.Create([User()], 1, 10, 1))),
                 _ => Task.FromResult(Result.Success())
             };
         }
 
-        private static UserResponse User() => new(
-            UserId, "fixture@example.test", "Fixture User", "Mentee", null, null,
-            false, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        private static UserSummaryResponse User() => new(
+            UserId, "fixture@example.test", "Fixture User", "Mentee",
+            true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
     }
 
     public sealed class StubRateLimitStore : IRateLimitStore
@@ -146,7 +155,8 @@ public sealed class IdentityApiFixture : IAsyncLifetime
                 return Task.FromResult(AuthenticateResult.NoResult());
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
-                [new Claim(ClaimTypes.NameIdentifier, UserId.ToString())], Scheme.Name));
+                [new Claim(ClaimTypes.NameIdentifier, UserId.ToString()),
+                 new Claim(ClaimTypes.Role, Request.Headers["X-Role"].FirstOrDefault() ?? "Admin")], Scheme.Name));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));
         }
     }

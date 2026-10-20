@@ -22,9 +22,9 @@ Mọi code bạn viết ra BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT các q
 ### 2. CẤU TRÚC 4 TẦNG NỘI BỘ MỖI MODULE:
 Bên trong `src/Modules/{ModuleName}/`:
 - `Domain/`: Entities, Value Objects, Domain Events (`IDomainEvent`), Domain Errors (`Error`).
-- `Application/{Feature}/{UseCase}/{UseCase}.cs`: Command/Query nội bộ, handler và validator theo nhóm nghiệp vụ (Identity có `Auth`, `Users`); giữ tên kiểu như `LoginCommand`.
-- `Application/{Feature}/Requests/`: DTO `*Request` nhận HTTP body hoặc query parameters.
-- `Application/{Feature}/Responses/`: DTO `*Response` chứa dữ liệu API trả về.
+- `Application/{Feature}/{UseCase}.cs`: Command/Query nội bộ, handler và validator theo nhóm nghiệp vụ (Identity có `Auth`, `Users`); giữ tên kiểu như `LoginCommand`.
+- `Application/{Feature}/DTOs/Requests/`: DTO `*Request` nhận HTTP body hoặc query parameters.
+- `Application/{Feature}/DTOs/Responses/`: DTO `*Response` chứa dữ liệu API trả về.
 - `Infrastructure/Persistence/`: `{ModuleName}DbContext`, `Configurations/` (`IEntityTypeConfiguration<T>`) và `Migrations/`; giữ nguyên migration ID và schema khi di chuyển.
 - `Endpoints/`: Minimal APIs gom nhóm theo `/api/v1/{routePrefix}`.
 - `{ModuleName}Module.cs`: Kế thừa `ModuleDefinition`.
@@ -38,7 +38,7 @@ Hợp đồng module nằm trong `BuildingBlocks/Modules`, interceptor EF trong 
 Mọi project kế thừa cấu hình C# từ `Directory.Build.props`; phiên bản NuGet quản lý tại `Directory.Packages.props`. Không ghi `Version` trên `PackageReference` trong `.csproj`. JWT Bearer thuộc API; module dùng PostgreSQL tự reference Npgsql. Khi thêm module mới, reference project từ API và thêm instance vào `ModuleRegistry.Create()`.
 
 ### 3. QUY CHUẨN C# 13 & EF CORE 10:
-- Luôn dùng file-scoped namespace với tiền tố `SkillBridge.Modules.{ModuleName}` và phần tiếp theo khớp thư mục, ví dụ `SkillBridge.Modules.Identity.Application.Auth.Login`.
+- Luôn dùng file-scoped namespace với tiền tố `SkillBridge.Modules.{ModuleName}` và phần tiếp theo khớp thư mục, ví dụ `SkillBridge.Modules.Identity.Application.Auth`.
 - Luôn dùng collection expressions: `[ ... ]` thay cho `new List<...>()`.
 - Luôn cấu hình bảng lịch sử migration riêng cho từng schema:
   `npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "{schema_name}")`.

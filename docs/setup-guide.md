@@ -282,9 +282,9 @@ src/Modules/Catalog/
 ├── Domain/          <-- Chứa Entities, Value Objects, Domain Events, Domain Errors
 ├── Application/
 │   └── {Feature}/   <-- Nhóm nghiệp vụ
-│       ├── {UseCase}/{UseCase}.cs <-- Command/Query, validator và handler
-│       ├── Requests/  <-- Dữ liệu HTTP đầu vào: body hoặc query parameters
-│       └── Responses/ <-- Dữ liệu API trả về
+│       ├── {UseCase}.cs <-- Command/Query, validator và handler
+│       ├── DTOs/Requests/  <-- Dữ liệu HTTP đầu vào: body hoặc query parameters
+│       └── DTOs/Responses/ <-- Dữ liệu API trả về
 ├── Infrastructure/
 │   └── Persistence/
 │       ├── CatalogDbContext.cs <-- Schema: "catalog"
@@ -294,11 +294,11 @@ src/Modules/Catalog/
 └── CatalogModule.cs <-- Định nghĩa Module kế thừa ModuleDefinition
 ```
 
-Application được nhóm theo nghiệp vụ, không chia thư mục theo loại Command/Query. Trong Identity, `Auth` gồm Login, Register, RefreshToken, Logout, ChangePassword; `Users` gồm GetUsers, GetCurrentUser, UpdateUserStatus. Mỗi use case có file cùng tên, ví dụ `Application/Auth/Login/Login.cs` giữ các kiểu `LoginCommand`, validator và handler. Requests/Responses nằm trong nhóm sử dụng chúng: `Auth/Requests`, `Auth/Responses`, `Users/Requests`, `Users/Responses`.
+Application được nhóm theo nghiệp vụ, không chia thư mục theo loại Command/Query. Trong Identity, `Auth` gồm Login, Register, RefreshToken, Logout, ChangePassword; `Users` gồm GetUsers, GetCurrentUser, UpdateUserStatus. Mỗi use case có file cùng tên, ví dụ `Application/Auth/Login.cs` giữ các kiểu `LoginCommand`, validator và handler. DTOs/DTOs/Requests và DTOs/Responses nằm trong nhóm sử dụng chúng: `Auth/Requests`, `Auth/Responses`, `Users/Requests`, `Users/Responses`.
 
 Endpoint nhận DTO `*Request`, ánh xạ sang Command/Query rồi gửi qua MediatR; không bind trực tiếp Command/Query từ HTTP. Request là hợp đồng đầu vào HTTP, Command/Query là yêu cầu xử lý nội bộ, Response là hợp đồng dữ liệu trả về. Giữ nguyên tên các kiểu xử lý khi tổ chức lại file.
 
-Ví dụ trong Identity: `LoginRequest` → `LoginCommand` → `AuthResponse`; truy vấn danh sách dùng `GetUsersRequest` → `GetUsersQuery` → `UserResponse` trong kết quả phân trang. Khi ánh xạ, giữ nguyên tên trường JSON, query parameters (`page`, `pageSize`, `search`, `role`, `isActive`) và giá trị mặc định. IP đăng nhập thực tế lấy từ `HttpContext`; trường `IpAddress` cũ được giữ trong request để tương thích nhưng giá trị client gửi không được sử dụng.
+Ví dụ trong Identity: `LoginRequest` → `LoginCommand` → `TokenResponse`; truy vấn danh sách dùng `GetUsersRequest` → `GetUsersQuery` → `UserSummaryResponse` trong kết quả phân trang. Khi ánh xạ, giữ nguyên tên trường JSON, query parameters (`page`, `pageSize`, `search`, `role`, `isActive`) và giá trị mặc định. IP đăng nhập thực tế lấy từ `HttpContext`; trường `IpAddress` cũ được giữ trong request để tương thích nhưng giá trị client gửi không được sử dụng.
 
 DbContext, cấu hình entity và migration nằm trong `Infrastructure/Persistence/`; di chuyển không thay migration ID, schema hoặc nội dung mapping. Bảo mật kỹ thuật dùng chung tiếp tục nằm trong `BuildingBlocks/Security`, xác thực HTTP trong `Api/Security`; chỉ thêm security riêng trong module khi có triển khai thực tế.
 

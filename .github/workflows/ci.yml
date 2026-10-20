@@ -2,9 +2,9 @@ name: API CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop, 'dang/**']
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -26,6 +26,13 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U skillbridge_checks -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
 
     steps:
       - name: Checkout
@@ -46,4 +53,16 @@ jobs:
         run: dotnet format SkillBridge.slnx --verify-no-changes --no-restore
 
       - name: Test
+        env:
+          RUN_REDIS_TESTS: '1'
+          Redis__ConnectionString: localhost:6379
         run: dotnet test SkillBridge.slnx --configuration Release --no-build --no-restore
+
+      - name: Check logic and architecture
+        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build --no-restore
+
+      - name: Check PostgreSQL and HTTP flows
+        env:
+          SKILLBRIDGE_TEST_DATABASE: Host=localhost;Port=5432;Database=postgres;Username=skillbridge_checks;Password=skillbridge_checks
+          Redis__ConnectionString: localhost:6379
+        run: dotnet run --project tests/SkillBridge.Checks --configuration Release --no-build --no-restore -- --database

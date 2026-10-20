@@ -13,18 +13,27 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using SkillBridge.Api.Common;
 using SkillBridge.Api.Middleware;
 using SkillBridge.Api.Security;
 using SkillBridge.BuildingBlocks;
 using SkillBridge.BuildingBlocks.Events;
 using SkillBridge.BuildingBlocks.Security;
+using SkillBridge.Modules.Booking;
 using SkillBridge.Modules.Catalog;
 using SkillBridge.Modules.Catalog.Infrastructure;
 using SkillBridge.Modules.Identity;
-using SkillBridge.Modules.Identity.Application.Auth.Login;
-using SkillBridge.Modules.Identity.Application.Auth.RefreshToken;
+using SkillBridge.Modules.Identity.Application.Auth;
 using SkillBridge.Modules.Identity.Domain;
 using SkillBridge.Modules.Identity.Infrastructure.Persistence;
+using SkillBridge.Modules.Learning;
+using SkillBridge.Modules.Messaging;
+using SkillBridge.Modules.Payments;
+using SkillBridge.Modules.Profiles;
+using SkillBridge.Modules.Profiles.Infrastructure;
+using SkillBridge.Modules.Recommendations;
+using SkillBridge.Modules.Reviews;
+using SkillBridge.Modules.Scheduling;
 
 namespace SkillBridge.Checks;
 
@@ -49,7 +58,7 @@ internal static class DatabaseChecks
             await using var drop = new NpgsqlCommand($"DROP DATABASE \"{database}\" WITH (FORCE)", admin);
             await drop.ExecuteNonQueryAsync();
         }
-        Console.WriteLine("PASS: PostgreSQL migrations, HTTP contracts, Admin authorization, token rotation/revocation and Catalog concurrency.");
+        Console.WriteLine("PASS: PostgreSQL migrations, HTTP contracts, Identity security, Catalog concurrency and Profiles self-service.");
     }
 
     private static async Task RunHttpChecksAsync(string connectionString)
@@ -60,9 +69,14 @@ internal static class DatabaseChecks
             ["ConnectionStrings:Database"] = connectionString,
             ["Jwt:SecretKey"] = "Test-only-signing-key-created-for-local-checks-never-use-in-production-2026",
             ["Jwt:Issuer"] = "SkillBridge.Checks",
-            ["Jwt:Audience"] = "SkillBridge.Checks"
+            ["Jwt:Audience"] = "SkillBridge.Checks",
+            ["Redis:ConnectionString"] = Environment.GetEnvironmentVariable("Redis__ConnectionString") ?? "127.0.0.1:6379",
+            ["RateLimiting:Login:PermitLimit"] = "100"
         });
+        PaymentChecks.Configure(builder.Configuration);
         builder.Logging.ClearProviders();
+        builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Error)
+            .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Critical);
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, CurrentUser>();
         builder.Services.AddProblemDetails();
@@ -72,29 +86,78 @@ internal static class DatabaseChecks
             options.RejectionStatusCode = 429;
             options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
                 $"{context.Connection.RemoteIpAddress}:{context.GetEndpoint()?.DisplayName}",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 100, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
-        builder.Services.AddBuildingBlocks(builder.Configuration, typeof(IdentityModule).Assembly, typeof(CatalogModule).Assembly);
+        builder.Services.AddBuildingBlocks(builder.Configuration,
+            typeof(IdentityModule).Assembly,
+            typeof(CatalogModule).Assembly,
+            typeof(MessagingModule).Assembly,
+            typeof(SchedulingModule).Assembly,
+            typeof(BookingModule).Assembly,
+            typeof(LearningModule).Assembly,
+            typeof(PaymentsModule).Assembly,
+            typeof(ReviewsModule).Assembly,
+            typeof(RecommendationsModule).Assembly,
+            typeof(ProfilesModule).Assembly);
         builder.Services.AddSecurityServices(builder.Configuration);
         builder.Services.AddApiAuthentication();
+        builder.Services.AddMessagingComposition();
+        var scheduling = new SchedulingModule();
+        scheduling.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSchedulingComposition();
+        var booking = new BookingModule();
+        booking.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddBookingComposition();
+        var learning = new LearningModule();
+        learning.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddLearningComposition();
+        LearningChecks.ConfigureServices(builder.Services);
+        var payments = new PaymentsModule();
+        payments.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddPaymentsComposition();
+        var reviews = new ReviewsModule();
+        reviews.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddReviewsComposition();
+        var recommendations = new RecommendationsModule();
+        recommendations.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddRecommendationsComposition();
+        PaymentChecks.ConfigureServices(builder.Services, builder.Configuration);
+        // Reconciliation được gọi trực tiếp để kiểm tra phục hồi/hết hạn không phụ thuộc timer 5 giây.
+        foreach (var descriptor in builder.Services.Where(x => x.ImplementationType?.Name is "BookingMaintenance" or "BookingLifecycleWorker" or "PaymentReconciliationWorker" or "MetricsWorker").ToArray())
+            builder.Services.Remove(descriptor);
+        var messaging = new MessagingModule();
+        messaging.AddServices(builder.Services, builder.Configuration);
         var identity = new IdentityModule();
         var catalog = new CatalogModule();
+        var profiles = new ProfilesModule();
         identity.AddServices(builder.Services, builder.Configuration);
+        IdentityRecoveryChecks.ConfigureServices(builder.Services);
         catalog.AddServices(builder.Services, builder.Configuration);
+        profiles.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddCatalogComposition();
         await using var app = builder.Build();
         app.UseExceptionHandler();
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();
+        messaging.MapEndpoints(app);
         identity.MapEndpoints(app);
         catalog.MapEndpoints(app);
+        profiles.MapEndpoints(app);
+        scheduling.MapEndpoints(app);
+        booking.MapEndpoints(app);
+        learning.MapEndpoints(app);
+        payments.MapEndpoints(app);
+        reviews.MapEndpoints(app);
+        recommendations.MapEndpoints(app);
         app.Urls.Add("http://127.0.0.1:0");
 
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
             var taxonomy = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+            var profileData = scope.ServiceProvider.GetRequiredService<ProfilesDbContext>();
             await users.GetService<IMigrator>().MigrateAsync("20260911052416_Initial_Identity");
             var legacyOne = Guid.NewGuid();
             var legacyTwo = Guid.NewGuid();
@@ -110,7 +173,17 @@ internal static class DatabaseChecks
             Program.Check(upgraded.All(user => string.IsNullOrEmpty(user.PasswordHash) && !user.IsActive),
                 "Legacy users without credentials must not receive fabricated passwords or active accounts.");
             await taxonomy.Database.MigrateAsync();
-            Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() && !(await taxonomy.Database.GetPendingMigrationsAsync()).Any(),
+            await messaging.InitializeAsync(app.Services);
+            await profileData.Database.MigrateAsync();
+            await scheduling.InitializeAsync(app.Services);
+            await booking.InitializeAsync(app.Services);
+            await learning.InitializeAsync(app.Services);
+            await payments.InitializeAsync(app.Services);
+            await reviews.InitializeAsync(app.Services);
+            await recommendations.InitializeAsync(app.Services);
+            Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() &&
+                !(await taxonomy.Database.GetPendingMigrationsAsync()).Any() &&
+                !(await profileData.Database.GetPendingMigrationsAsync()).Any(),
                 "PostgreSQL migrations remain pending.");
             users.Users.Add(User.Create("admin@checks.test", scope.ServiceProvider.GetRequiredService<IPasswordHasher>().HashPassword("Password123!"), "Admin", "Admin"));
             await users.SaveChangesAsync();
@@ -139,6 +212,14 @@ internal static class DatabaseChecks
                 new { email = "oversized@checks.test", password = "Ab1!" + new string('đ', 35), fullName = "Oversized", role = "Mentee" });
             var mentee = await LoginAsync(client, "mentee@checks.test");
             var admin = await LoginAsync(client, "admin@checks.test");
+            await ProfilesHttpChecks.RunAsync(client, mentee.AccessToken);
+            await MentorServiceChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await SchedulingChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await BookingChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await LearningChecks.RunAsync(client, app.Services, mentee.AccessToken, admin.AccessToken);
+            await PaymentChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await ReviewChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await RecommendationChecks.RunAsync(client, app.Services, mentee.AccessToken, admin.AccessToken);
             using var adminMe = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 200, bearer: admin.AccessToken);
             var adminId = (await JsonAsync(adminMe)).GetProperty("id").GetGuid();
             using var selfDisable = await SendAsync(client, HttpMethod.Put, $"/api/v1/identity/users/{adminId}/status", 403,
@@ -164,10 +245,13 @@ internal static class DatabaseChecks
             Program.Check((await JsonAsync(me)).GetProperty("fullName").GetString() == "Updated Mentee", "Updating current user did not persist fullName.");
 
             await CheckCatalogAsync(client, admin.AccessToken, mentee.AccessToken);
+            await MessagingChecks.RunAsync(client, app.Services);
+            await ChatHubChecks.RunAsync(client, app.Services);
             var concurrentAccess = await CheckConcurrentRefreshAsync(app.Services, mentee.RefreshToken, userId);
             using var originalRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: mentee.AccessToken);
             using var winnerRevoked = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 401, bearer: concurrentAccess);
             await CheckFailedLoginLockoutAsync(app.Services);
+            await IdentityRecoveryChecks.RunAsync(client, app.Services);
             using var replay = await SendAsync(client, HttpMethod.Post, "/api/v1/identity/auth/refresh", 401, cookie: mentee.Cookie);
             await using (var scope = app.Services.CreateAsyncScope())
                 Program.Check(await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().OutboxMessages.CountAsync() == 1,
@@ -329,7 +413,7 @@ internal static class DatabaseChecks
         finally { foreach (var response in moves) response.Dispose(); }
     }
 
-    private static async Task<(string AccessToken, string Cookie, string RefreshToken)> LoginAsync(HttpClient client, string email, string password = "Password123!")
+    internal static async Task<(string AccessToken, string Cookie, string RefreshToken)> LoginAsync(HttpClient client, string email, string password = "Password123!")
     {
         using var response = await SendAsync(client, HttpMethod.Post, "/api/v1/identity/auth/login", 200, new { email, password });
         var json = await JsonAsync(response);
@@ -342,7 +426,7 @@ internal static class DatabaseChecks
         return (json.GetProperty("accessToken").GetString()!, cookie, Uri.UnescapeDataString(cookie["refreshToken=".Length..]));
     }
 
-    private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string path, int? expected,
+    internal static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string path, int? expected,
         object? body = null, string? bearer = null, string? cookie = null)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -359,7 +443,7 @@ internal static class DatabaseChecks
         return response;
     }
 
-    private static async Task<JsonElement> JsonAsync(HttpResponseMessage response)
+    internal static async Task<JsonElement> JsonAsync(HttpResponseMessage response)
     {
         using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         return document.RootElement.Clone();

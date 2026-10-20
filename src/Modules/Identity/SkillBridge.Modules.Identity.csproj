@@ -7,6 +7,7 @@
         <ProjectReference Include="..\..\BuildingBlocks\SkillBridge.BuildingBlocks.csproj" />
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     </ItemGroup>

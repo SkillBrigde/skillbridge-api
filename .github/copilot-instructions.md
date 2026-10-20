@@ -42,9 +42,9 @@ Inside any module `src/Modules/{ModuleName}/`:
 ├── Domain/                         # Entities, Value Objects, Domain Events, Domain Errors
 ├── Application/
 │   └── {Feature}/                  # Business group, e.g. Auth or Users in Identity
-│       ├── {UseCase}/{UseCase}.cs   # Internal command/query, validator and handler
-│       ├── Requests/               # HTTP body/query inputs, named *Request
-│       └── Responses/              # API outputs, named *Response
+│       ├── {UseCase}.cs   # Internal command/query, validator and handler
+│       ├── DTOs/Requests/               # HTTP body/query inputs, named *Request
+│       └── DTOs/Responses/              # API outputs, named *Response
 ├── Infrastructure/
 │   └── Persistence/
 │       ├── {Name}DbContext.cs
@@ -56,7 +56,7 @@ Inside any module `src/Modules/{ModuleName}/`:
 
 Endpoints MUST bind HTTP inputs to Request DTOs and map them to internal Commands/Queries before calling MediatR. Do NOT bind Commands/Queries directly from HTTP. Keep request/response JSON fields, query parameter names and defaults unchanged when refactoring. Server-derived values such as the login IP address MUST come from `HttpContext`, not a client-supplied Request property.
 
-Keep Requests/Responses under their feature group; for example `Application/Auth/Requests/LoginRequest.cs`, `Application/Auth/Login/Login.cs` and `Application/Auth/Responses/AuthResponse.cs`. Preserve type names such as `LoginCommand` inside the use-case file. Create directories only when code exists; do not scaffold empty layers or module-specific Security folders without an implementation.
+Keep DTOs/Requests/Responses under an existing business group, or directly under Application for modules without a contract group. Do not create one folder per single-file use case; for example `Application/Auth/DTOs/Requests/LoginRequest.cs`, `Application/Auth/Login.cs` and `Application/Auth/DTOs/Responses/TokenResponse.cs`. Preserve type names such as `LoginCommand` inside the use-case file. Use *Response names for HTTP outputs; keep internal secret-bearing results such as AuthenticationResult outside Responses. Keep JSON serialization attributes on relocated DTOs. Create directories only when code exists; do not scaffold empty layers or module-specific Security folders without an implementation.
 
 Architecture tests belong to `tests/ArchitectureTests/SkillBridge.ArchitectureTests.csproj`; endpoint and security configuration tests belong to `tests/IntegrationTests/SkillBridge.IntegrationTests.csproj`.
 
@@ -64,7 +64,7 @@ Architecture tests belong to `tests/ArchitectureTests/SkillBridge.ArchitectureTe
 
 ## 3. C# 13 & .NET 10 Coding Standards
 
-- **File-Scoped Namespaces**: Use the `SkillBridge.Modules.{Name}` prefix followed by the source folders, e.g. `SkillBridge.Modules.Identity.Application.Auth.Login` (do not use bracketed namespaces).
+- **File-Scoped Namespaces**: Use the `SkillBridge.Modules.{Name}` prefix followed by the source folders, e.g. `SkillBridge.Modules.Identity.Application.Auth` (do not use bracketed namespaces).
 - **Collection Expressions**: Prefer `List<IModule> modules = [ new IdentityModule() ];` over `new List<IModule>()`.
 - **Primary Constructors**: Use primary constructors for dependency injection where appropriate.
 - **Fluent API**: Keep domain classes pure. Put all EF Core mappings inside `IEntityTypeConfiguration<T>` in `Infrastructure/Persistence/Configurations/`.

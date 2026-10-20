@@ -4,11 +4,34 @@ Hướng dẫn cho EF Core/`dotnet-ef` **10.0.12**, chạy tại thư mục gố
 
 ## Nguồn quản lý schema và bootstrap
 
-**EF migrations quản lý các bảng đã được triển khai trong code.** [01-init-schemas.sql](../scripts/init-db/01-init-schemas.sql) chỉ tạo extension và 10 schema rỗng khi PostgreSQL khởi tạo volume mới; không tạo bảng hoặc seed role. Mount của Docker Compose giữ nguyên. Identity có migration cho các bảng đang dùng; chín module còn là khung sẽ thêm migration khi có nghiệp vụ.
+**EF migrations quản lý các bảng đã được triển khai trong code.** [01-init-schemas.sql](../scripts/init-db/01-init-schemas.sql) chỉ tạo extension và 10 schema rỗng khi PostgreSQL khởi tạo volume mới; không tạo bảng hoặc seed role. Mount của Docker Compose giữ nguyên. Cả 10 module hiện đã có nghiệp vụ và migrations trong nhánh tổng hợp; xem tiến độ thực tế theo nhánh tại [backend-progress.md](backend-progress.md).
 
 SQL thiết kế đầy đủ trước đây được giữ tại [database-blueprint.sql](database-blueprint.sql) để tham khảo, không phải script bootstrap hoặc nguồn nâng cấp database đang chạy. Blueprint dùng cột `snake_case`, trong khi EF Initial hiện dùng tên cột `PascalCase` có quote; chạy cả hai để sở hữu cùng bảng sẽ gây xung đột.
 
 Volume/database hiện có không được khởi tạo lại hoặc thay đổi bởi việc thay file bootstrap. Nếu trước đây đã tạo bảng theo blueprint/script thủ công, cần đối chiếu dữ liệu, mapping và lịch sử EF trong một quy trình reconciliation riêng. `CompleteIdentitySchema` không tự chuyển schema `snake_case` đó sang schema EF. Không xóa volume để ép chạy lại bootstrap trên dữ liệu cần giữ.
+
+## Các module bổ sung ngày 20/10/2026
+
+Mỗi module có history riêng và không FK sang schema khác. Áp dụng phần nền Scheduling/Booking/Learning trước khi khởi động các adapter/worker mới; migration SQL không tự triển khai code.
+
+| Module | Context | Migration mới | SQL review |
+|---|---|---|---|
+| Payments | PaymentsDbContext | AddPaymentsEscrow | [SQL idempotent](../scripts/migrations/payments/AddPaymentsEscrow.sql) |
+| Reviews | ReviewsDbContext | AddVerifiedReviews | [SQL idempotent](../scripts/migrations/reviews/AddVerifiedReviews.sql) |
+| Recommendations | RecommendationsDbContext | AddRecommendationReadModels | [SQL idempotent](../scripts/migrations/recommendations/AddRecommendationReadModels.sql) |
+
+Đây là script từ 0 cho từng schema, có kiểm tra history; không chạy database-blueprint.sql để tạo cùng bảng. Không có secret gateway trong migration/SQL. Việc xuất SQL và kiểm thử database trống không chứng minh database production đang có schema tương thích.
+
+Ngoài Identity có factory riêng, EF tools cho module khác lấy DI từ Host. Khi xuất SQL, đặt ASPNETCORE_ENVIRONMENT=Testing để không chạy luồng auto-migrate Development; cấu hình ConnectionStrings__Database, Redis__ConnectionString và Jwt__SecretKey bằng secret/local test config. Lệnh dưới chỉ xuất file, không cập nhật database:
+
+```powershell
+dotnet build SkillBridge.slnx --configuration Release --warnaserror
+dotnet ef migrations script --project src/Modules/Payments --startup-project src/Api --context PaymentsDbContext --configuration Release --no-build --idempotent --output scripts/migrations/payments/AddPaymentsEscrow.sql
+dotnet ef migrations script --project src/Modules/Reviews --startup-project src/Api --context ReviewsDbContext --configuration Release --no-build --idempotent --output scripts/migrations/reviews/AddVerifiedReviews.sql
+dotnet ef migrations script --project src/Modules/Recommendations --startup-project src/Api --context RecommendationsDbContext --configuration Release --no-build --idempotent --output scripts/migrations/recommendations/AddRecommendationReadModels.sql
+```
+
+Chỉ Development tự MigrateAsync khi khởi động. Production cần áp SQL đã review và kiểm tra history trước khi chạy workers. Mọi Down có thể mất dữ liệu tài chính/review/log, không dùng rollback migration thay cho khôi phục backup.
 
 ## Cấu hình design time
 
@@ -66,7 +89,7 @@ Với User tồn tại từ schema Initial:
 
 Các cột cần backfill được tạo nullable trước, sau đó mới chuyển thành NOT NULL. Migration giữ khóa độc quyền trên `identity.users` trong transaction để kiểm tra và backfill nhất quán; cần bố trí thời điểm nâng cấp phù hợp với lưu lượng truy cập.
 
-Chỉ bật lại `IsActive` không giúp tài khoản legacy đăng nhập được. Sau khi xác minh chủ tài khoản, người quản trị đáng tin cậy cần đặt BCrypt hash mới từ mật khẩu riêng của tài khoản, đổi `SecurityStamp`, rồi mới kích hoạt theo quy trình có kiểm soát. **Chưa có chức năng khôi phục/reset mật khẩu tự động hoặc màn hình quản trị cho bước này**; đợt migration không hoàn thành quy trình phục hồi tài khoản. Các giới hạn phiên/JWT đã ghi trong [báo cáo bảo mật](security-review.md) vẫn còn.
+Chỉ bật lại `IsActive` không giúp tài khoản legacy đăng nhập được. Sau khi xác minh chủ tài khoản, người quản trị đáng tin cậy cần đặt BCrypt hash mới từ mật khẩu riêng của tài khoản, đổi `SecurityStamp`, rồi mới kích hoạt theo quy trình có kiểm soát. API quên/reset mật khẩu hiện đã có, nhưng quy trình phục hồi tài khoản legacy bị khóa vẫn cần xác minh và kích hoạt có kiểm soát; migration không tự hoàn thành bước này. Các giới hạn phiên/JWT đã ghi trong [báo cáo bảo mật](security-review.md) vẫn còn.
 
 ## Áp dụng và rollback
 
@@ -87,4 +110,4 @@ Lệnh này thay đổi database. API chạy trong **Development** cũng đang g
 
 ## Phạm vi kiểm chứng lần bổ sung
 
-Đã có 109 kiểm thử chạy thành công ngoài PostgreSQL và EF xác nhận không còn pending model changes. Docker engine chưa khởi động được, nên chưa xác nhận SQL upgrade/backfill/rollback trên PostgreSQL thật. Các kiểm tra này không chứng minh database hiện có đã tương thích hoặc đã được nâng cấp.
+Mốc Identity ban đầu có 109 kiểm thử ngoài PostgreSQL. Tại ngày 20/10/2026, bộ checks đã áp migrations cả 10 module trên PostgreSQL 18 cô lập, kiểm tra dữ liệu Identity legacy và chạy 3 architecture + 117 integration tests với Redis. Không kiểm thử downgrade/xóa dữ liệu tài chính hoặc nâng cấp database production hiện có. Xem bằng chứng và giới hạn mới nhất trong backend-progress.md.

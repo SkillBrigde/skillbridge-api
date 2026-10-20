@@ -6,5 +6,6 @@
     <ProjectReference Include="../../src/Api/SkillBridge.Api.csproj" />
     <ProjectReference Include="../../src/Modules/Identity/SkillBridge.Modules.Identity.csproj" />
     <ProjectReference Include="../../src/Modules/Catalog/SkillBridge.Modules.Catalog.csproj" />
+    <ProjectReference Include="../../src/Modules/Profiles/SkillBridge.Modules.Profiles.csproj" />
   </ItemGroup>
 </Project>
