@@ -26,7 +26,7 @@ Tổng **87 REST + 1 Hub có route**. Còn 19 REST theo kế hoạch: Payments 7
 
 - #27 Scheduling: đã squash merge vào develop tại `cac16bd`; nhánh này đã đồng bộ bản sửa conflict ND-11 `8c5242a`.
 - #28 Booking core: đã squash merge vào develop tại `d7c1d18`; nhánh Learning đã đồng bộ mốc này, giữ producer BookingSnapshots, retry outbox và kiểm tra bằng chứng hoàn tất từ Learning.
-- Learning #29 bổ sung producer snapshot chỉ đọc, migration Learning và Booking AddOutboxRetryAfter. PR vẫn Draft, chưa merge vào develop; các nhánh Payments/Reviews/Recommendations được đồng bộ từ nhánh Learning sau khi sửa conflict.
+- Learning #29 đã squash merge vào develop tại `cd0f4e0`, gồm producer snapshot chỉ đọc, migration Learning và Booking AddOutboxRetryAfter. Payments đã đồng bộ develop sau lần merge này; giữ đăng ký Payments và kiểm thử nhiều consumer Booking, tiếp tục đồng bộ các nhánh Reviews/Recommendations.
 
 ## Tích hợp đã kiểm chứng
 
