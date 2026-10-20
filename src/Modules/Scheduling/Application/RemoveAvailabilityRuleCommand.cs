@@ -20,6 +20,7 @@ public sealed class RemoveAvailabilityRuleCommandValidator : AbstractValidator<R
 public sealed class RemoveAvailabilityRuleCommandHandler(
     SchedulingDbContext dbContext,
     AvailabilityRuleStore ruleStore,
+    SlotStore slots,
     IMentorDirectory mentorDirectory) : ICommandHandler<RemoveAvailabilityRuleCommand>
 {
     public async Task<Result> Handle(RemoveAvailabilityRuleCommand request, CancellationToken cancellationToken)
@@ -45,6 +46,8 @@ public sealed class RemoveAvailabilityRuleCommandHandler(
 
         dbContext.AvailabilityRules.Remove(rule);
         await dbContext.SaveChangesAsync(cancellationToken);
+        var regenerated = await slots.RegenerateAsync(mentorId.Value, cancellationToken);
+        if (regenerated.IsFailure) return regenerated;
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();
     }
