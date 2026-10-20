@@ -1,258 +1,75 @@
-# Tài liệu API Contract - Payments Module (SkillBridge)
+# Payments API — mã nguồn hiện tại
 
-## Giới thiệu
-Tài liệu định nghĩa API Contract cho **Payments Module** của hệ thống SkillBridge. Trách nhiệm của module là xử lý thanh toán, ví điện tử (wallet), giao dịch ký quỹ (Escrow), hoàn tiền (Refund), và quyết toán cho Mentor.
+Base `/api/v1/payments`. JWT bắt buộc, ngoại trừ webhook có chữ ký. Có 7 nghiệp vụ REST; webhook VNPAY có thêm GET alias nên số cặp method/path thực tế là 8.
 
----
+## Chính sách tiền
 
-## Các API Endpoints
+- **Khóa rút tiền, giải ngân và hoàn tiền tự động**, theo quyết định chủ dự án ngày 20/10/2026. Chưa chốt phí hoặc thời hạn khiếu nại; không dùng các tỷ lệ/thời gian ví dụ cũ.
+- Chỉ thanh toán Booking bằng VND nguyên đồng; không nạp ví hoặc đổi ngoại tệ. Amount lấy từ snapshot Booking; trường `amount` tùy chọn chỉ để đối chiếu, không dùng làm giá.
+- Tiền đã xác minh được ghi cùng receipt, hai bút toán đối ứng và escrow trong một transaction Payments. Tổng bút toán mỗi giao dịch bằng 0. Đây là sổ theo dõi nội bộ, không khẳng định ngân hàng cung cấp tài khoản escrow pháp lý riêng.
+- Callback trùng không tạo thêm tiền. Callback sai tiền/tham chiếu hoặc không có đơn được lưu `gateway_receipts.rejection_code` để đối soát, không tự cộng ví hoặc xác nhận Booking.
+- Tiền đến sau hủy/hết hạn giữ chỗ vẫn được ghi nhận; Booking không được hồi sinh. Escrow chuyển `ReviewRequired`, không tự hoàn tiền.
+- `balance`/`availableBalance` của ví hiện bằng 0 vì chưa có nguồn tiền đã giải ngân. `heldBalance` là tổng tiền đang giữ từ gateway, không được chi tiêu.
 
-### 1. Xem ví cá nhân
-- **Method:** `GET`
-- **URL:** `/api/v1/payments/wallet`
-- **Mô tả:** Lấy thông tin ví hiện tại của người dùng.
-- **Role:** `Authenticated`
+## 7 API
 
-#### Response (200 OK)
+| Method | URL | Quyền | Kết quả |
+|---|---|---|---|
+| GET | `/wallet` | Authenticated | Ví của chính user, số dư khả dụng, tiền đang giữ, `disbursementLocked: true` |
+| GET | `/wallet/transactions?page=1&pageSize=10` | Authenticated | Các khoản `GatewayEscrowHold` của chính user; `amount` là tiền đưa vào escrow, `balanceBefore/After` là số dư khả dụng (không đổi) |
+| POST | `/create-payment` | Mentee sở hữu Booking | Link PayOS/VNPAY có chữ ký; cần `Idempotency-Key` |
+| POST | `/webhooks/{gateway}` | Chữ ký gateway | `payos` JSON hoặc `vnpay` query string; VNPAY hỗ trợ cả GET |
+| GET | `/bookings/{bookingId}/escrow` | Hai người tham gia Booking | Escrow, `platformFeeAmount`/`mentorNetAmount`/`releasedAtUtc` bằng null khi chưa chốt chính sách |
+| POST | `/withdraw` | Mentor | Validate thông tin rồi trả `409 Payments.DisbursementLocked`; không tạo yêu cầu/không trừ tiền |
+| GET | `/payouts?page=1&pageSize=10` | Mentor | Danh sách rỗng khi chính sách đang khóa, chưa tồn tại yêu cầu rút tiền hợp lệ |
+
+Phân trang: page >= 1, pageSize 1–100, tránh tràn số; response `items/page/pageSize/totalCount/totalPages`.
+
+### Tạo thanh toán
+
 ```json
 {
-  "id": "5a4b3c2d-1e0f-9a8b-7c6d-5e4f3a2b1c0d",
-  "userId": "d0e1b2f3-c4a5-48b6-9c7d-e8f90a1b2c3d",
-  "balance": 1500000.0,
-  "currency": "VND",
-  "createdAtUtc": "2026-08-10T10:00:00Z",
-  "updatedAtUtc": "2026-09-14T02:00:00Z"
-}
-```
-
----
-
-### 2. Lịch sử giao dịch ví
-- **Method:** `GET`
-- **URL:** `/api/v1/payments/wallet/transactions`
-- **Mô tả:** Lấy danh sách biến động số dư (phân trang).
-- **Role:** `Authenticated`
-
-#### Query Parameters
-- `page` (int): Trang hiện tại (default 1).
-- `pageSize` (int): Số lượng trên một trang (default 10).
-
-#### Response (200 OK)
-```json
-{
-  "items": [
-    {
-      "id": "11223344-5566-7788-99aa-bbccddeeff00",
-      "walletId": "5a4b3c2d-1e0f-9a8b-7c6d-5e4f3a2b1c0d",
-      "type": "EscrowHold",
-      "amount": -500000.0,
-      "balanceBefore": 2000000.0,
-      "balanceAfter": 1500000.0,
-      "referenceId": "e3b0c442-989b-4643-9b0c-1b8f042e88a0",
-      "referenceType": "Booking",
-      "description": "Tạm giữ tiền cho booking SB-2026-98124",
-      "createdAtUtc": "2026-09-14T03:00:00Z"
-    }
-  ],
-  "page": 1,
-  "pageSize": 10,
-  "totalCount": 45,
-  "totalPages": 5
-}
-```
-
----
-
-### 3. Khởi tạo thanh toán (Dual Gateway: VNPAY & PayOS)
-- **Method:** `POST`
-- **URL:** `/api/v1/payments/create-payment`
-- **Mô tả:** Khởi tạo thanh toán cho đơn đặt lịch hoặc nạp tiền ví, hỗ trợ cả 2 cổng VNPAY Sandbox (Redirect thẻ test) và PayOS (VietQR quét tiền thật).
-- **Role:** `Authenticated`
-
-#### Request Body
-```json
-{
-  "bookingId": "e3b0c442-989b-4643-9b0c-1b8f042e88a0",
-  "amount": 500000.0,
-  "gateway": "PayOS", // "PayOS" hoặc "VnPay"
-  "description": "Thanh toan lich hen SB98124",
-  "returnUrl": "https://skillbridge.vn/checkout/result",
-  "cancelUrl": "https://skillbridge.vn/checkout/cancel"
-}
-```
-
-#### Response khi chọn PayOS (200 OK)
-```json
-{
-  "orderCode": 98124,
-  "gateway": "PayOS",
-  "amount": 500000.0,
-  "qrCode": "00020101021238580010A0000007270128000697042201140000123456780208QRIBFTTA530370454065000005802VN62170813SB981246304A1B2",
-  "paymentUrl": "https://pay.payos.vn/web/...",
-  "accountNumber": "0383123456",
-  "accountName": "NGUYEN VAN A",
-  "bin": "970422",
-  "expiresAtUtc": "2026-09-14T14:40:00Z"
-}
-```
-
-#### Response khi chọn VnPay Sandbox (200 OK)
-```json
-{
-  "orderCode": 98124,
+  "bookingId": "00000000-0000-0000-0000-000000000001",
   "gateway": "VnPay",
-  "amount": 500000.0,
-  "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=50000000&vnp_Command=pay&vnp_CreateDate=20260914143000&vnp_CurrCode=VND&vnp_IpAddr=127.0.0.1&vnp_Locale=vn&vnp_OrderInfo=Thanh+toan+lich+hen+SB98124&vnp_OrderType=other&vnp_ReturnUrl=https%3A%2F%2Fskillbridge.vn%2Fcheckout%2Fresult&vnp_TmnCode=VNPAYDEMO&vnp_TxnRef=SB98124&vnp_Version=2.1.0&vnp_SecureHash=...",
-  "expiresAtUtc": "2026-09-14T14:45:00Z"
+  "amount": 500000,
+  "returnUrl": "https://web.example/checkout/result",
+  "cancelUrl": "https://web.example/checkout/cancel"
 }
 ```
 
----
+`description` tùy chọn, tối đa 255 ký tự; mô tả chuyển khoản thực tế do server sinh từ orderCode. URL phải khớp **chính xác** allowlist, HTTPS, không user-info; không lấy URL tùy ý của client. Không dùng browser return/cancel để đổi trạng thái trả tiền.
 
-### 4. Nhận Webhook từ Payment Gateway (Dual Gateway Webhook)
-- **Method:** `POST`
-- **URL:** `/api/v1/payments/webhooks/{gateway}`
-- **Mô tả:** Endpoint công khai tiếp nhận tín hiệu thanh toán từ PayOS hoặc VNPAY IPN. Đảm bảo Idempotency (chống cộng tiền lặp) và chữ ký số.
-- **Role:** `Anonymous` (Xác thực chữ ký HMAC)
+Response 200: `paymentId`, `orderCode`, `gateway`, `amount`, `currency`, `paymentUrl`, `qrCode`, `accountNumber`, `accountName`, `bin`, `expiresAtUtc`. Các trường QR/tài khoản có thể null; hạn link không vượt hạn giữ chỗ. Một Booking chỉ có một đơn gateway; retry bằng key/nội dung ban đầu, không đổi gateway hoặc phát sinh đơn thứ hai.
 
-#### Path Variables
-- `gateway`: `payos` hoặc `vnpay`.
+Lỗi: 400 dữ liệu/URL/key, 401/403 auth, 404 không sở hữu Booking/escrow, 409 key đã dùng hoặc Booking đóng/sai tiền, 503 gateway chưa cấu hình/lỗi tạm thời. Timeout không tự đổi orderCode. PayOS retry tra cứu đơn đã tồn tại bằng cùng orderCode và xác minh response trước khi khôi phục link.
 
-#### Xử lý cổng PayOS (`/api/v1/payments/webhooks/payos`):
-- **Header:** Nhận signature từ PayOS payload hoặc webhook signature header.
-- **Thuật toán:** HMAC-SHA256 với `ChecksumKey` được cấp bởi PayOS.
-- **Payload:**
-```json
-{
-  "code": "00",
-  "desc": "success",
-  "data": {
-    "orderCode": 98124,
-    "amount": 500000,
-    "description": "Thanh toan lich hen SB98124",
-    "accountNumber": "0383123456",
-    "reference": "FT26091412345678",
-    "transactionDateTime": "2026-09-14 14:31:00",
-    "paymentLinkId": "c4d3e2f1-0a9b-8c7d-6e5f-4a3b2c1d0e9f",
-    "code": "00",
-    "desc": "success"
-  },
-  "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}
-```
-- **Response PayOS yêu cầu:**
-```json
-{
-  "success": true
-}
+### Webhook
+
+PayOS: xác minh HMAC-SHA256 trên `data` theo thứ tự khóa, so sánh constant-time, lấy trạng thái thành công từ `data.code` đã ký. Không tin `code`/`success` ngoài `data`. Từ chối JSON trùng khóa, payload quá 64 KiB, sai kiểu/sai currency/sai chữ ký. Thành công trả `{ "success": true }`.
+
+VNPAY: HMAC-SHA512 trên các tham số `vnp_` đã URL encode theo thứ tự ordinal, bỏ SecureHash/SecureHashType. Kiểm tra TmnCode, TxnRef, amount chia 100, ResponseCode và TransactionStatus cùng 00. Từ chối query trùng giá trị; thành công trả **đúng tên hoa/thường** `{ "RspCode": "00", "Message": "Confirm Success" }`; chữ ký sai trả RspCode 97, không có đơn 01, sai tiền/tham chiếu 04.
+
+Webhook đã lưu thành công có thể acknowledge dù Booking tạm lỗi: worker 5 giây tiếp tục các Payment `Verified`. Nếu đã cập nhật Booking nhưng tiến trình ngắt trước khi đánh dấu Payments, retry cùng paymentId không đặt lịch/cộng tiền lần hai. Lỗi nghiệp vụ Booking đóng chuyển `ReviewRequired`. Callback thất bại không ghi tiền. Không có API công khai nhận `paid=true`.
+
+## Infra và kiểm chứng
+
+Migration riêng `payments`, lịch sử `payments.__EFMigrationsHistory`. Các bảng: `payment_orders`, `gateway_receipts`, `escrows`, `ledger_entries`, `wallets`; không FK sang module khác. Development tự migrate theo Host; môi trường khác áp migration trước worker.
+
+Gateway **tắt mặc định**. Cấu hình secret qua env/secret store, không commit khóa:
+
+```text
+Payments__VnPay__Enabled=true
+Payments__VnPay__TmnCode=<merchant>
+Payments__VnPay__HashSecret=<secret>
+Payments__VnPay__PaymentUrl=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+Payments__PayOS__Enabled=true
+Payments__PayOS__ClientId=<client>
+Payments__PayOS__ApiKey=<secret>
+Payments__PayOS__ChecksumKey=<secret>
+Payments__AllowedReturnUrls__0=https://web.example/checkout/result
+Payments__AllowedReturnUrls__1=https://web.example/checkout/cancel
 ```
 
-#### Xử lý cổng VNPAY IPN (`/api/v1/payments/webhooks/vnpay`):
-- **Phương thức:** `GET` hoặc `POST` (VNPAY IPN truyền qua Query String).
-- **Thuật toán:** HMAC-SHA512 với `HashSecret` của Merchant Sandbox.
-- **Response VNPAY yêu cầu:**
-```json
-{
-  "RspCode": "00",
-  "Message": "Confirm Success"
-}
-```
+VNPAY production URL được phép: `https://pay.vnpay.vn/vpcpay.html`. PayOS gọi cố định `https://api-merchant.payos.vn`, không cho redirect mang theo credential. PayOS dùng tiền thật; chỉ bật khi chủ dự án sẵn sàng kiểm chứng và đối soát. Cần cấu hình webhook HTTPS tại merchant và kiểm tra kết nối ngoài Internet; source code/test nội bộ không chứng minh giao dịch tiền thật hoặc đối soát sao kê đã hoàn tất.
 
----
-
-### 5. Xem trạng thái Escrow
-- **Method:** `GET`
-- **URL:** `/api/v1/payments/bookings/{bookingId}/escrow`
-- **Mô tả:** Lấy thông tin hợp đồng Escrow của một booking.
-- **Role:** `Authenticated` (Mentee/Mentor của booking đó)
-
-#### Response (200 OK)
-```json
-{
-  "id": "b1c2d3e4-f5a6-b7c8-d9e0-f1a2b3c4d5e6",
-  "bookingId": "e3b0c442-989b-4643-9b0c-1b8f042e88a0",
-  "totalAmount": 500000.0,
-  "platformFeeAmount": 50000.0,
-  "mentorNetAmount": 450000.0,
-  "status": "Holding",
-  "releasedAtUtc": null,
-  "createdAtUtc": "2026-09-14T03:00:00Z"
-}
-```
-
----
-
-### 6. Rút tiền (Withdraw)
-- **Method:** `POST`
-- **URL:** `/api/v1/payments/withdraw`
-- **Mô tả:** Mentor yêu cầu rút tiền từ ví về tài khoản ngân hàng.
-- **Role:** `Mentor`
-
-#### Request Body
-```json
-{
-  "amount": 2000000.0,
-  "bankCode": "VCB",
-  "accountNumber": "1234567890",
-  "accountName": "NGUYEN VAN A"
-}
-```
-
-#### Response (200 OK)
-```json
-{
-  "transactionId": "f0e1d2c3-b4a5-9876-5432-10fedcba9876",
-  "status": "Pending"
-}
-```
-
-#### Phản hồi lỗi
-- **422 Unprocessable Entity:** Số dư không đủ để rút.
-```json
-{
-  "type": "https://tools.ietf.org/html/rfc7807",
-  "title": "Insufficient Balance",
-  "status": 422,
-  "detail": "Wallet balance is not enough to process withdrawal.",
-  "instance": "/api/v1/payments/withdraw",
-  "extensions": {
-    "correlationId": "xyz987"
-  }
-}
-```
-
----
-
-### 7. Lịch sử rút tiền
-- **Method:** `GET`
-- **URL:** `/api/v1/payments/payouts`
-- **Mô tả:** Danh sách các yêu cầu rút tiền của Mentor.
-- **Role:** `Mentor`
-
-#### Response (200 OK)
-```json
-{
-  "items": [
-    {
-      "id": "f0e1d2c3-b4a5-9876-5432-10fedcba9876",
-      "amount": 2000000.0,
-      "status": "Completed",
-      "bankCode": "VCB",
-      "createdAtUtc": "2026-09-10T08:00:00Z"
-    }
-  ],
-  "page": 1,
-  "pageSize": 10,
-  "totalCount": 1,
-  "totalPages": 1
-}
-```
-
-## Các Quy tắc nghiệp vụ (Business Rules)
-1. **Escrow (Ký quỹ):** Tiền của Mentee bị giữ (Holding) khi Booking được tạo hoặc thanh toán. Sau khi buổi học kết thúc (SessionCompleted), chờ thời gian tranh chấp (Dispute window: 24-48h). Nếu không có khiếu nại, hợp đồng Escrow đổi trạng thái thành `Released`, tiền được chuyển cho Mentor (trừ phí).
-2. **Platform Fee:** Nền tảng tự động trích một phần trăm (%) từ tổng số tiền Booking mỗi khi hoàn thành giao dịch (PlatformFee transaction).
-3. **Double-entry Ledger:** Mọi giao dịch ví (`wallet_transactions`) phải có `balance_before` và `balance_after` để đảm bảo tính toàn vẹn (tổng = 0 hoặc khớp số dư tuyệt đối).
-4. **Idempotency & Webhook Verification:** 
-   - Webhook phải kiểm tra chữ ký (Signature) hợp lệ để tránh giả mạo.
-   - Idempotent: Phải check `gateway_transaction_id` để tránh xử lý trùng lặp giao dịch nạp tiền.
-5. **Refunds:** Nghe sự kiện `BookingCancelledIntegrationEvent`, thực hiện hoàn tiền vào ví Mentee nếu bị hủy hợp lệ và Escrow chưa bị Released.
+Đối chiếu giao thức: [PayOS API](https://payos.vn/docs/api/), [SDK crypto chính thức](https://github.com/payOSHQ/payos-lib-dotnet/blob/main/src/Crypto/CryptoProvider.cs), [VNPAY 2.1.0](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html).
