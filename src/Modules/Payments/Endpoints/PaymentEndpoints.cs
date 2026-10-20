@@ -78,7 +78,8 @@ public static class PaymentEndpoints
         {
             if (result.IsFailure) return Failure(result.Error);
             var saved = await service.ReceiveAsync("PayOS", result.Value, ct);
-            return saved.IsSuccess ? Results.Ok(new { success = true }) : Failure(saved.Error);
+            // payOS gửi giao dịch mẫu có chữ ký khi đăng ký webhook; đã lưu receipt không có đơn để đối soát.
+            return saved.IsSuccess || saved.Error.Code == PaymentErrors.Missing.Code ? Results.Ok(new { success = true }) : Failure(saved.Error);
         }
         if (result.IsFailure)
             return result.Error == PaymentErrors.Unavailable ? Failure(result.Error) : Results.Json(new VnPayAcknowledgement("97", "Invalid signature or payload"));

@@ -15,7 +15,7 @@ namespace SkillBridge.Modules.Payments.Infrastructure;
 public sealed class PaymentGateway(HttpClient client, IConfiguration configuration) : IPaymentGateway
 {
     private string Setting(string gateway, string key) => configuration[$"Payments:{gateway}:{key}"] ?? "";
-    public bool IsConfigured(string gateway) => Setting(gateway, "Enabled") == "true" && (gateway switch
+    public bool IsConfigured(string gateway) => bool.TryParse(Setting(gateway, "Enabled"), out var enabled) && enabled && (gateway switch
     {
         "PayOS" => new[] { "ClientId", "ApiKey", "ChecksumKey" }.All(x => !string.IsNullOrWhiteSpace(Setting(gateway, x))),
         "VnPay" => new[] { "TmnCode", "HashSecret" }.All(x => !string.IsNullOrWhiteSpace(Setting(gateway, x))),
