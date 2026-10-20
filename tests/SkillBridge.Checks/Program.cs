@@ -30,6 +30,8 @@ using SkillBridge.Modules.Payments;
 using SkillBridge.Modules.Payments.Infrastructure;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
+using SkillBridge.Modules.Recommendations;
+using SkillBridge.Modules.Recommendations.Infrastructure;
 using SkillBridge.Modules.Reviews;
 using SkillBridge.Modules.Reviews.Infrastructure;
 using SkillBridge.Modules.Scheduling;
@@ -53,6 +55,7 @@ internal static class Program
             LearningChecks.CheckDomain();
             PaymentChecks.CheckDomain();
             ReviewChecks.CheckDomain();
+            RecommendationChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
@@ -185,6 +188,7 @@ internal static class Program
         new LearningModule().AddServices(services, config);
         new PaymentsModule().AddServices(services, config);
         new ReviewsModule().AddServices(services, config);
+        new RecommendationsModule().AddServices(services, config);
         new MessagingModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
@@ -196,6 +200,7 @@ internal static class Program
         CheckModel(scope.ServiceProvider.GetRequiredService<LearningDbContext>(), "learning");
         CheckModel(scope.ServiceProvider.GetRequiredService<PaymentsDbContext>(), "payments");
         CheckModel(scope.ServiceProvider.GetRequiredService<ReviewsDbContext>(), "reviews");
+        CheckModel(scope.ServiceProvider.GetRequiredService<RecommendationsDbContext>(), "recommendations");
         CheckModel(scope.ServiceProvider.GetRequiredService<MessagingDbContext>(), "messaging");
     }
 
