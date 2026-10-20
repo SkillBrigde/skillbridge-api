@@ -23,6 +23,7 @@ public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
         {
             b.ToTable("outbox_messages"); b.HasKey(x => x.Id);
             b.Property(x => x.Type).HasMaxLength(100); b.Property(x => x.Content).HasColumnType("jsonb");
+            b.Property<DateTimeOffset?>("RetryAfterUtc");
             b.HasIndex(x => x.OccurredOnUtc).HasFilter("processed_on_utc IS NULL");
         });
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
