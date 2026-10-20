@@ -8,11 +8,11 @@ Hệ thống Backend xây dựng theo kiến trúc **Modular Monolith** trên n�
 
 - `src/Api`: Điểm khởi chạy (Composition Root), quản lý HTTP pipeline, health checks, OpenAPI/Scalar và CORS; danh sách module nằm trong `Modules/ModuleRegistry.cs`.
 - `src/BuildingBlocks`: Chứa các primitives kỹ thuật dùng chung (`Entity`, `AggregateRoot`, `IDomainEvent`, `Result<T>`, `IModule`); CQRS, pipeline behaviors và integration events nằm trong `Messaging/`.
-- `src/Modules/*`: 10 project module độc lập; Identity có nghiệp vụ Auth/Users, chín module còn lại đang là khung chờ bổ sung nghiệp vụ.
+- `src/Modules/*`: 10 project module độc lập, đã có mã nguồn 106 nghiệp vụ REST + 1 Hub (107 method/path REST gồm VNPAY GET alias). Xem [tiến độ và giới hạn](docs/backend-progress.md); gateway tiền thật cần cấu hình, giải ngân đang khóa.
 - **Ranh giới dữ liệu**: Mỗi module sở hữu schema và migration riêng, không tạo khóa ngoại vật lý chéo schema. Mô hình nghiệp vụ dự kiến được trình bày trong tài liệu thiết kế.
 - **Giao tiếp liên phân hệ**: Các module không reference chéo trực tiếp. Event bus hiện được đăng ký bằng `InMemoryEventBus`; RabbitMQ/outbox là hướng thiết kế tích hợp.
 
-Xem [cấu trúc toàn backend](docs/backend-structure.md) để biết vai trò của API, BuildingBlocks, các module, test và cách thêm chức năng. `Directory.Build.props` quản lý cấu hình build chung; `Directory.Packages.props` quản lý phiên bản NuGet cho cả 14 project.
+Xem [cấu trúc toàn backend](docs/backend-structure.md) để biết vai trò của API, BuildingBlocks, các module, test và cách thêm chức năng. `Directory.Build.props` quản lý cấu hình build chung; `Directory.Packages.props` quản lý phiên bản NuGet cho cả 15 project.
 
 ---
 
@@ -61,7 +61,7 @@ docker compose up -d
 
 ### 3. Chạy ứng dụng API
 
-API cần `Jwt__SecretKey`, `ConnectionStrings__Database` và thông tin RabbitMQ từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Workspace local hiện tại đã có `.env` được điền key mới và giữ thông tin kết nối local. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống.
+API cần `Jwt__SecretKey`, `ConnectionStrings__Database`, `Redis__ConnectionString` từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống.
 
 CORS và địa chỉ phụ thuộc môi trường dùng `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, `AllowedHosts`, `RabbitMq__Host` trong `.env`/biến môi trường. `launchSettings.json` tiếp tục là cấu hình chạy từ IDE; JWT issuer/audience là định danh logic, vẫn có mặc định trong JSON.
 
