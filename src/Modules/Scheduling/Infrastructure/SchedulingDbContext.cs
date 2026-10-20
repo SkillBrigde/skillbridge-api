@@ -11,6 +11,8 @@ public sealed class SchedulingDbContext(DbContextOptions<SchedulingDbContext> op
 
     public DbSet<SchedulingSettings> SchedulingSettings => Set<SchedulingSettings>();
     public DbSet<AvailabilityRule> AvailabilityRules => Set<AvailabilityRule>();
+    public DbSet<AvailabilitySlot> Slots => Set<AvailabilitySlot>();
+    public DbSet<TimeOff> TimeOffs => Set<TimeOff>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

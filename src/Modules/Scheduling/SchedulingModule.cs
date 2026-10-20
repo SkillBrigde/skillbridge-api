@@ -26,11 +26,15 @@ public sealed class SchedulingModule : ModuleDefinition
             npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", SchedulingDbContext.Schema)));
         services.TryAddScoped<IMentorDirectory, UnavailableMentorDirectory>();
         services.AddScoped<AvailabilityRuleStore>();
+        services.AddScoped<SlotStore>();
+        services.AddScoped<SlotService>();
+        services.AddScoped<SlotReservations>();
     }
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         base.MapEndpoints(endpoints);
+        endpoints.MapSlotEndpoints();
 
         var group = endpoints.MapGroup("/api/v1/scheduling")
             .WithTags("Scheduling")

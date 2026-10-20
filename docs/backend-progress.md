@@ -1,23 +1,61 @@
 # Tiến độ backend SkillBridge
 
-Cập nhật: 24/09/2026. Đây là kiểm kê mã nguồn và phạm vi triển khai đợt đầu; tài liệu thiết kế không đồng nghĩa tính năng đã hoạt động. Endpoint `/_module` chỉ xác nhận module được đăng ký.
+Cập nhật 20/10/2026. Trạng thái dưới đây mô tả mã nguồn của nhánh này; chưa đồng nghĩa đã merge vào `develop` hoặc đã triển khai production. Endpoint `/_module` không được tính là API nghiệp vụ.
 
-## Kiểm kê 10 module
+## Đã triển khai
 
-| Module | Trạng thái đầu đợt | Phạm vi đợt này / điều kiện tiếp theo |
-|---|---|---|
-| Identity | Có 8 API nghiệp vụ, mô hình EF và migration | Củng cố xác thực, validation, refresh token; thêm cập nhật hồ sơ cơ bản và chi tiết user cho Admin, tổng 10 API |
-| Catalog | Chỉ có module stub | Triển khai 11 API categories, skills, tags theo contract; domain, EF, migration và phân quyền Admin |
-| Profiles | Chỉ có module stub | Hồ sơ Mentor/Mentee, quyền sở hữu và xử lý đăng ký sau khi thống nhất hợp đồng sự kiện |
-| Scheduling | Chỉ có module stub | Cài đặt, lịch tuần, ngày nghỉ, sinh slot; cần thống nhất múi giờ và quy tắc slot |
-| Booking | Chỉ có module stub | Cần dịch vụ của Mentor, slot, intake form, khóa giữ chỗ và trạng thái thanh toán đáng tin cậy |
-| Payments | Chỉ có module stub | Cần contract Booking, sổ giao dịch, idempotency, chữ ký gateway và quy tắc escrow |
-| Learning | Chỉ có module stub | Tạo buổi học từ booking đã xác nhận, kiểm tra người tham gia, điểm danh và tài liệu |
-| Messaging | Chỉ có module stub | Hội thoại, tin nhắn lưu bền và kiểm tra thành viên trước REST/SignalR |
-| Reviews | Chỉ có module stub | Cần bằng chứng session hoàn tất, một review/booking, cửa sổ sửa 48 giờ và thống kê |
-| Recommendations | Chỉ có module stub | Cần dữ liệu kỹ năng, hồ sơ, booking, session, review và tương tác thực tế |
+| Module | REST | Phạm vi |
+|---|---:|---|
+| Identity | 12 | Xác thực, phiên, hồ sơ user, quản trị user, quên/đặt lại mật khẩu |
+| Catalog | 17 | Categories/skills/tags và 6 API dịch vụ Mentor, version và snapshot gói nhiều buổi |
+| Profiles | 14 | Hồ sơ Mentor/Mentee, kỹ năng, kinh nghiệm, chứng chỉ và xác minh |
+| Scheduling | 10 | Settings, rules, sinh slot theo timezone, ngày nghỉ và giữ/xác nhận/nhả nhiều slot nội bộ |
+| Messaging | 8 + 1 Hub | REST và SignalR, quyền thành viên, lưu tin nhắn, đọc/sửa/xóa và bảo vệ phiên |
 
-Số API ở trên không tính endpoint probe. Bắt đầu đợt này chỉ Identity có migration; không có căn cứ coi 46 bảng trong blueprint là đã triển khai.
+Tổng 61 REST + 1 Hub theo contract hiện có (gồm 6 API mentor services bổ sung). Scheduling Slots/Time-offs thuộc đợt ND-10 này, cần merge PR trước khi sử dụng từ `develop`.
+
+## Chưa hoàn thiện
+
+| Module | REST theo kế hoạch | Phụ thuộc cần nối |
+|---|---:|---|
+| Booking | 9 | Snapshot giá/dịch vụ, giữ đủ slot cho gói nhiều buổi, thanh toán đáng tin cậy, dời lịch và audit |
+| Payments | 7 | Gateway, webhook có xác minh, ledger/escrow, idempotency và đối soát |
+| Learning | 16 | Tạo đủ buổi từ booking, quyền tham gia, điểm danh, bài tập và tài liệu |
+| Reviews | 7 | Bằng chứng hoàn tất, một review/booking, sửa 48 giờ và thống kê |
+| Recommendations | 5 | Dữ liệu thật từ hồ sơ, kỹ năng, booking và review |
+
+Năm module trên vẫn là stub tại mốc ND-10, chưa có API nghiệp vụ. Không coi tài liệu thiết kế hoặc code dở trong stash là tính năng đã chạy.
+
+## Quyết định đã chốt với chủ dự án
+
+- Hỗ trợ gói nhiều buổi ngay: một dịch vụ có 1–52 buổi, giá là tổng gói; Booking phải chọn đủ slot phù hợp và giữ nguyên tử cả gói.
+- **Khóa giải ngân tự động.** Chủ dự án xác nhận ngày 20/10/2026 chưa chốt phí nền tảng, hoàn tiền và hạn khiếu nại. Không tự đặt mức phí, chia tiền hoặc lịch chi trả. Mọi triển khai Payments tiếp theo phải mặc định từ chối giải ngân tự động cho tới khi có quyết định rõ ràng và kiểm thử.
+- Từ đợt này tiếp tục cả phần công việc trước đây phân công cho nguyendat; chia nhánh `dang/<feature-name>` và commit tiếng Việt theo từng phần liên quan.
+
+## Giới hạn triển khai
+
+- Email recovery hiện có mailbox dành cho Development; môi trường thật cần nhà cung cấp gửi email, thiếu cấu hình phải trả lỗi khả dụng.
+- Outbox Messaging có lưu bền, chưa có dispatcher/inbox liên module đã chứng minh. Chưa xác nhận giao nhận RabbitMQ đầu cuối.
+- Messaging hiện hỗ trợ nội dung văn bản và bảo vệ realtime trên một instance; cần kiểm tra scale nhiều instance trước production.
+- Slots làm mới khi đọc/ghi lịch; chưa có worker nền. Cổng giữ chỗ đã kiểm thử riêng, chưa phải luồng Booking/Payments đầu cuối.
+- Chưa có kiểm chứng gateway thật, upload production, triển khai infra hoặc kiểm thử web đầu cuối.
+
+## Bằng chứng kiểm tra ND-10
+
+Ngày 20/10/2026 trên Windows/.NET 10, database PostgreSQL 18 và Redis thử nghiệm cô lập:
+
+- Release build với `--warnaserror`: 0 lỗi, 0 cảnh báo.
+- SkillBridge.Checks: domain/DST, migration/schema, HTTP, security, REST/SignalR, password recovery và Scheduling đạt.
+- Scheduling kiểm tra ngày nghỉ chồng nhau khi tạo đồng thời, quyền sở hữu, stable slot ID, buffer, rollback thay đổi ảnh hưởng slot được bảo vệ và hai gói tranh cùng nhiều slot chỉ một gói thắng; xác nhận đủ slot cùng transaction.
+- xUnit: 3 architecture + 117 integration tests đạt, không bỏ qua test Redis.
+- Host thật trên database trống riêng: migrations, health live/ready, OpenAPI và auth rate limit đạt.
+- Đã dọn database/container/tiến trình thử nghiệm; không migrate database của người dùng.
+
+Các kiểm tra này không chứng minh năm module còn stub hoặc các tích hợp production đã hoàn tất.
+
+## Ghi chú lịch sử
+
+Phần dưới là kiểm kê **đợt đầu tháng 9/2026**, giữ để tra cứu các điểm bất nhất ban đầu; trạng thái hiện tại lấy từ các bảng phía trên.
 
 ## Các điểm tài liệu chưa thống nhất
 

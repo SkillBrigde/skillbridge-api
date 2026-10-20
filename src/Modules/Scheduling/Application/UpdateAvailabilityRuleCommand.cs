@@ -22,6 +22,7 @@ public sealed class UpdateAvailabilityRuleCommandValidator : AbstractValidator<U
 public sealed class UpdateAvailabilityRuleCommandHandler(
     SchedulingDbContext dbContext,
     AvailabilityRuleStore ruleStore,
+    SlotStore slots,
     IMentorDirectory mentorDirectory,
     TimeProvider timeProvider) : ICommandHandler<UpdateAvailabilityRuleCommand>
 {
@@ -60,6 +61,8 @@ public sealed class UpdateAvailabilityRuleCommandHandler(
 
         rule.Update(window.Value, request.IsActive, timeProvider.GetUtcNow());
         await dbContext.SaveChangesAsync(cancellationToken);
+        var regenerated = await slots.RegenerateAsync(mentorId.Value, cancellationToken);
+        if (regenerated.IsFailure) return regenerated;
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();
     }

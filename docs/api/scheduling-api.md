@@ -5,19 +5,19 @@
 **Trách nhiệm:** Lịch biểu sẵn sàng (Availability Slots) của Mentor, ngày nghỉ, lịch bận.  
 **Authentication:** JWT Bearer Token
 
-**Phạm vi hiện tại:** Settings và API Rules có đánh dấu `IMPLEMENTED` đã hoạt động. Sinh/tái sinh Slots và Time-offs thuộc ND-10, chưa được triển khai; các quy ước về Slots bên dưới là yêu cầu cho giai đoạn đó.
+**Phạm vi hiện tại:** Đã triển khai đủ 10 REST API: Settings (2), Availability Rules (4), Slots (1), Time-offs (3). Booking dùng cổng giữ/xác nhận/nhả slot nội bộ tại Host; không có API công khai cho client tự đánh dấu đã đặt.
 
 **Quy tắc nghiệp vụ:**
 - Slots tự động sinh từ `availability_rules`
-- Khi tạo `time-off`, hệ thống sẽ tự động hủy các slots đang ở trạng thái `Available` nằm trong khoảng thời gian đó.
+- Khi tạo `time-off`, hệ thống chuyển các slot khả dụng trong khoảng đó sang `Locked`; không xóa định danh slot.
 - `buffer_time_minutes`: khoảng thời gian nghỉ giữa 2 buổi mentoring.
 - `lead_time_hours`: người học (mentee) phải đặt lịch trước ít nhất số giờ quy định này.
 
 **Quy ước thời gian dùng cho các API Scheduling:**
 - `timezone` dùng mã IANA hoặc `UTC`; availability rule lưu giờ địa phương theo múi giờ của Mentor.
-- Slots thực tế được lưu bằng UTC và được sinh sẵn đến giới hạn `maxDaysInAdvance`; thay đổi settings, rule hoặc time-off sẽ tái sinh phần lịch bị ảnh hưởng trong cùng transaction.
+- Slots lưu UTC; cửa sổ sinh gồm hôm nay đến hôm nay + `maxDaysInAdvance - 1` theo timezone Mentor. Ghi settings/rule/time-off và đọc danh sách slots đều làm mới cửa sổ này. Hiện không có tác vụ nền sinh slot. Thay đổi lịch và sinh lại slot cùng transaction, cùng khóa PostgreSQL theo Mentor.
 - `startDate`, `endDate` của truy vấn slots và time-off đều bao gồm cả ngày đầu lẫn ngày cuối theo múi giờ Mentor.
-- Khi đổi giờ mùa hè (DST), giờ địa phương không tồn tại sẽ bị bỏ qua; giờ bị lặp dùng lần xuất hiện sớm hơn để không sinh trùng slot.
+- Khi đổi giờ mùa hè (DST), giờ địa phương không tồn tại sẽ bị bỏ qua; giờ bị lặp dùng lần xuất hiện sớm hơn để không sinh trùng slot. Bỏ qua slot nếu thời điểm đầu/cuối không tồn tại hoặc thời lượng UTC khác thời lượng cấu hình.
 - Các availability rule đang hoạt động trong cùng một thứ không được chồng lấn.
 - Time-off khóa slot `Available`; nếu chồng lên slot `Held` hoặc `Booked`, yêu cầu bị từ chối và không tự hủy lịch đã giữ/đặt.
 
@@ -270,16 +270,24 @@ Trống.
 
 ## 7. Xem danh sách Slots trống của Mentor
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `GET`  
 **URL:** `/api/v1/scheduling/mentors/{mentorId}/slots`  
 **Mô tả:** Lấy danh sách các khung giờ (slots) thực tế của một mentor, trong khoảng ngày.  
-**Quyền truy cập:** `Public` (hoặc `Authenticated`/`Mentee`)
+**Quyền truy cập:** `Public`
 
 ### Query Parameters
 | Tên | Kiểu | Bắt buộc | Mô tả |
 |---|---|---|---|
 | `startDate` | `string` | Có | Ngày bắt đầu (ISO 8601, VD: `2026-09-15`) |
 | `endDate` | `string` | Có | Ngày kết thúc (ISO 8601, VD: `2026-09-22`) |
+| `page` | `int` | Không | Mặc định 1, tối thiểu 1 |
+| `pageSize` | `int` | Không | Mặc định 100, từ 1 đến 100 |
+
+Chỉ trả slot `Available`, chưa bắt đầu và đáp ứng `leadTimeHours`; thứ tự `startAtUtc`, `id`. Ngày tính theo timezone Mentor, hai đầu bao gồm; khoảng truy vấn tối đa 366 ngày, năm 2000–9998. `mentorId` là ID hồ sơ Profiles, không phải ID tài khoản. `bookingId` luôn null ở phản hồi công khai. ID slot giữ nguyên khi sinh lại cùng khung giờ.
+
+Lỗi: `400` tham số không hợp lệ; `404` Mentor chưa có settings. Ngoài cửa sổ đặt lịch nhận danh sách rỗng.
 
 ### Response Body (200 OK)
 ```json
@@ -306,9 +314,11 @@ Trống.
 
 ## 8. Đăng ký ngày nghỉ (Time-off)
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `POST`  
 **URL:** `/api/v1/scheduling/time-offs`  
-**Mô tả:** Mentor thêm thời gian vắng mặt. Tự động chuyển các slots có trong thời gian này từ `Available` sang `Locked`. Sinh sự kiện `SlotReleasedIntegrationEvent` (nếu cần xử lý thêm).  
+**Mô tả:** Mentor thêm thời gian vắng mặt. Tự động chuyển các slots có trong thời gian này từ `Available` sang `Locked`. Không tự hủy booking hoặc phát sự kiện nhả booking.
 **Quyền truy cập:** `Mentor`
 
 ### Request Body
@@ -336,6 +346,8 @@ Trống.
 
 ## 9. Hủy đăng ký ngày nghỉ
 
+**Trạng thái:** `IMPLEMENTED`
+
 **HTTP Method:** `DELETE`  
 **URL:** `/api/v1/scheduling/time-offs/{timeOffId}`  
 **Mô tả:** Hủy thời gian nghỉ. Các slots có thể được phục hồi.  
@@ -347,6 +359,8 @@ Trống.
 ---
 
 ## 10. Lấy danh sách ngày nghỉ (Time-offs)
+
+**Trạng thái:** `IMPLEMENTED`
 
 **HTTP Method:** `GET`  
 **URL:** `/api/v1/scheduling/time-offs`  
@@ -372,3 +386,16 @@ Trống.
   "totalPages": 1
 }
 ```
+
+
+## Giới hạn và tích hợp ND-10
+
+- Time-off bắt buộc ngày đầu/cuối, từ hôm nay đến tối đa 365 ngày tới theo timezone Mentor; `reason` tùy chọn, tối đa 1000 ký tự, không chứa ký tự điều khiển. Không nhận trường JSON ngoài contract. Khoảng nghỉ chồng nhau trả `409`, kể cả tạo đồng thời.
+- GET Time-offs chỉ trả dữ liệu của Mentor đăng nhập, sắp theo `startDate`, `id`; `page=1`, `pageSize=50`, tối đa 100. Không có bộ lọc ngày ở endpoint này.
+- DELETE Time-off khác chủ hoặc không tồn tại trả `404`; xóa thành công khôi phục slot theo settings/rules hiện tại.
+- POST/DELETE Time-off yêu cầu hồ sơ Mentor và settings. `401` chưa đăng nhập; `403` sai vai trò; `409` thiếu hồ sơ/settings hoặc ảnh hưởng slot được bảo vệ.
+- Mọi cập nhật settings/rules ảnh hưởng slot `Held` chưa hết hạn hoặc `Booked` trả `409 Scheduling.ProtectedSlot`; toàn bộ thay đổi được rollback. Slot không còn hợp lệ được lưu `Unavailable`, giữ lịch sử và ID; không trả cho client.
+- Cổng nội bộ `SlotReservations` giữ nguyên tử 1–52 slot của cùng Mentor, kiểm tra thời lượng, lead time và hạn giữ tối đa 10 phút. Giữ thiếu một slot thì rollback cả gói. Xác nhận chỉ thành công khi đủ slot, đúng booking và chưa hết hạn. Chỉ Host được nối cổng này sang Booking; client không được truyền trạng thái thanh toán để xác nhận.
+- Hold hết hạn được thu hồi khi làm mới lịch; chưa có worker chủ động. Booking cần tự kiểm tra hạn thanh toán và có cơ chế retry/đối soát trước khi nhận thanh toán thật. Phần này chưa chứng minh luồng Booking/Payments đầu cuối.
+
+Quy tắc DST dựa trên `TimeZoneInfo.IsInvalidTime`, `IsAmbiguousTime` và `GetAmbiguousTimeOffsets` của .NET: [tài liệu Microsoft](https://learn.microsoft.com/en-us/dotnet/api/system.timezoneinfo.isambiguoustime?view=net-10.0).

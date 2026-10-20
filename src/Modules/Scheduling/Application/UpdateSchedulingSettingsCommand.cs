@@ -1,6 +1,5 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using SkillBridge.BuildingBlocks.Messaging.CQRS;
 using SkillBridge.BuildingBlocks.Results;
 using SkillBridge.Modules.Scheduling.Domain;
@@ -47,6 +46,7 @@ public sealed class UpdateSchedulingSettingsCommandValidator : AbstractValidator
 
 public sealed class UpdateSchedulingSettingsCommandHandler(
     SchedulingDbContext dbContext,
+    SlotStore slots,
     IMentorDirectory mentorDirectory,
     TimeProvider timeProvider) : ICommandHandler<UpdateSchedulingSettingsCommand>
 {
@@ -71,10 +71,11 @@ public sealed class UpdateSchedulingSettingsCommandHandler(
             return Result.Failure(values.Error);
         }
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await slots.LockAsync(mentorId.Value, cancellationToken);
         var settings = await dbContext.SchedulingSettings
             .SingleOrDefaultAsync(item => item.MentorId == mentorId.Value, cancellationToken);
         var now = timeProvider.GetUtcNow();
-        SchedulingSettings? createdSettings = null;
 
         if (settings is null)
         {
@@ -87,34 +88,18 @@ public sealed class UpdateSchedulingSettingsCommandHandler(
                 return Result.Failure(created.Error);
             }
 
-            createdSettings = created.Value;
-            dbContext.SchedulingSettings.Add(createdSettings);
+            dbContext.SchedulingSettings.Add(created.Value);
         }
         else
         {
             settings.Update(values.Value, now);
         }
 
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException exception) when (
-            createdSettings is not null &&
-            exception.InnerException is PostgresException
-            {
-                SqlState: PostgresErrorCodes.UniqueViolation,
-                ConstraintName: "ux_scheduling_settings_mentor_id"
-            })
-        {
-            dbContext.Entry(createdSettings).State = EntityState.Detached;
+        await dbContext.SaveChangesAsync(cancellationToken);
 
-            var concurrentSettings = await dbContext.SchedulingSettings
-                .SingleAsync(item => item.MentorId == mentorId.Value, cancellationToken);
-            concurrentSettings.Update(values.Value, timeProvider.GetUtcNow());
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-
+        var regenerated = await slots.RegenerateAsync(mentorId.Value, cancellationToken);
+        if (regenerated.IsFailure) return regenerated;
+        await transaction.CommitAsync(cancellationToken);
         return Result.Success();
     }
 }

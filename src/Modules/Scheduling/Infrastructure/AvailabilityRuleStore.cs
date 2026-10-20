@@ -3,13 +3,16 @@ using SkillBridge.Modules.Scheduling.Domain;
 
 namespace SkillBridge.Modules.Scheduling.Infrastructure;
 
-public sealed class AvailabilityRuleStore(SchedulingDbContext dbContext)
+public sealed class AvailabilityRuleStore(SchedulingDbContext dbContext, SlotStore slots)
 {
     // Phải gọi trong transaction, trước khi đọc/ghi rule. Khóa theo Mentor bảo vệ cả khoảng giờ chưa có bản ghi.
-    public async Task<bool> LockSettingsAsync(Guid mentorId, CancellationToken cancellationToken) =>
-        await dbContext.SchedulingSettings
+    public async Task<bool> LockSettingsAsync(Guid mentorId, CancellationToken cancellationToken)
+    {
+        await slots.LockAsync(mentorId, cancellationToken);
+        return await dbContext.SchedulingSettings
             .FromSqlInterpolated($"SELECT * FROM scheduling.scheduling_settings WHERE mentor_id = {mentorId} FOR UPDATE")
             .SingleOrDefaultAsync(cancellationToken) is not null;
+    }
 
     public Task<bool> HasOverlapAsync(
         Guid mentorId,
