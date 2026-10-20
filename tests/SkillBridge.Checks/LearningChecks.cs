@@ -19,6 +19,7 @@ namespace SkillBridge.Checks;
 internal static class LearningChecks
 {
     private static readonly AdjustableClock Clock = new();
+    internal static void SetTime(DateTimeOffset? now) => Clock.Now = now;
     public static void ConfigureServices(IServiceCollection services) => services.AddSingleton<TimeProvider>(Clock);
     public static void CheckDomain()
     {
