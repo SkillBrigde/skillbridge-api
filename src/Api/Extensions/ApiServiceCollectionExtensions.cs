@@ -81,6 +81,7 @@ public static class ApiServiceCollectionExtensions
         services.AddLearningComposition();
         services.AddPaymentsComposition();
         services.AddReviewsComposition();
+        services.AddRecommendationsComposition();
 
         return services;
     }
