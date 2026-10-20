@@ -24,6 +24,8 @@ using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Messaging.Infrastructure;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
+using SkillBridge.Modules.Scheduling;
+using SkillBridge.Modules.Scheduling.Infrastructure;
 
 namespace SkillBridge.Checks;
 
@@ -38,6 +40,7 @@ internal static class Program
             await IdentityRecoveryChecks.CheckDomainAsync();
             CheckDomain();
             MentorServiceChecks.CheckDomain();
+            SchedulingChecks.CheckDomain();
             CheckArchitecture();
             CheckModelsAndMigrations();
             Console.WriteLine("PASS: validation, HTTP errors, JSON, domain, boundaries and PostgreSQL migration SQL.");
@@ -165,12 +168,14 @@ internal static class Program
         new IdentityModule().AddServices(services, config);
         new CatalogModule().AddServices(services, config);
         new ProfilesModule().AddServices(services, config);
+        new SchedulingModule().AddServices(services, config);
         new MessagingModule().AddServices(services, config);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         CheckModel(scope.ServiceProvider.GetRequiredService<IdentityDbContext>(), "identity");
         CheckModel(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), "catalog");
         CheckModel(scope.ServiceProvider.GetRequiredService<ProfilesDbContext>(), "profiles");
+        CheckModel(scope.ServiceProvider.GetRequiredService<SchedulingDbContext>(), "scheduling");
         CheckModel(scope.ServiceProvider.GetRequiredService<MessagingDbContext>(), "messaging");
     }
 

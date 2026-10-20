@@ -28,6 +28,7 @@ using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 using SkillBridge.Modules.Messaging;
 using SkillBridge.Modules.Profiles;
 using SkillBridge.Modules.Profiles.Infrastructure;
+using SkillBridge.Modules.Scheduling;
 
 namespace SkillBridge.Checks;
 
@@ -83,10 +84,14 @@ internal static class DatabaseChecks
             typeof(IdentityModule).Assembly,
             typeof(CatalogModule).Assembly,
             typeof(MessagingModule).Assembly,
+            typeof(SchedulingModule).Assembly,
             typeof(ProfilesModule).Assembly);
         builder.Services.AddSecurityServices(builder.Configuration);
         builder.Services.AddApiAuthentication();
         builder.Services.AddMessagingComposition();
+        var scheduling = new SchedulingModule();
+        scheduling.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSchedulingComposition();
         var messaging = new MessagingModule();
         messaging.AddServices(builder.Services, builder.Configuration);
         var identity = new IdentityModule();
@@ -107,6 +112,7 @@ internal static class DatabaseChecks
         identity.MapEndpoints(app);
         catalog.MapEndpoints(app);
         profiles.MapEndpoints(app);
+        scheduling.MapEndpoints(app);
         app.Urls.Add("http://127.0.0.1:0");
 
         await using (var scope = app.Services.CreateAsyncScope())
@@ -131,6 +137,7 @@ internal static class DatabaseChecks
             await taxonomy.Database.MigrateAsync();
             await messaging.InitializeAsync(app.Services);
             await profileData.Database.MigrateAsync();
+            await scheduling.InitializeAsync(app.Services);
             Program.Check(!(await users.Database.GetPendingMigrationsAsync()).Any() &&
                 !(await taxonomy.Database.GetPendingMigrationsAsync()).Any() &&
                 !(await profileData.Database.GetPendingMigrationsAsync()).Any(),
@@ -164,6 +171,7 @@ internal static class DatabaseChecks
             var admin = await LoginAsync(client, "admin@checks.test");
             await ProfilesHttpChecks.RunAsync(client, mentee.AccessToken);
             await MentorServiceChecks.RunAsync(client, app.Services, mentee.AccessToken);
+            await SchedulingChecks.RunAsync(client, app.Services, mentee.AccessToken);
             using var adminMe = await SendAsync(client, HttpMethod.Get, "/api/v1/identity/users/me", 200, bearer: admin.AccessToken);
             var adminId = (await JsonAsync(adminMe)).GetProperty("id").GetGuid();
             using var selfDisable = await SendAsync(client, HttpMethod.Put, $"/api/v1/identity/users/{adminId}/status", 403,
