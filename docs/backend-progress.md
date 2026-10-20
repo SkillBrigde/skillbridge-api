@@ -24,7 +24,7 @@ Tổng **87 REST + 1 Hub có route**. Còn 19 REST theo kế hoạch: Payments 7
 
 ## Các PR và phụ thuộc
 
-- #27 Scheduling: 6 commit mới, vào develop, CI GitHub đã đạt.
+- #27 Scheduling: đã squash merge vào develop tại `cac16bd`; nhánh này đã đồng bộ bản sửa conflict ND-11 `8c5242a`.
 - #28 Booking core: 8 commit mới, PR Draft vào develop, CI GitHub đã đạt. Nhánh còn chứa 6 commit nền của #27; tổng 14 commit so với develop ở thời điểm mở PR, không phải 14 thay đổi Booking riêng.
 - Learning nằm trên nhánh kế tiếp của Booking, bổ sung Producer snapshot chỉ đọc, migration Learning và Booking AddOutboxRetryAfter. Cần đồng bộ/merge các phần nền theo thứ tự; chưa tự merge vào develop.
 
