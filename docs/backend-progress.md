@@ -14,17 +14,23 @@ Cập nhật 20/10/2026. Trạng thái dưới đây mô tả mã nguồn của 
 
 Tổng 61 REST + 1 Hub theo contract hiện có (gồm 6 API mentor services bổ sung). Scheduling Slots/Time-offs thuộc đợt ND-10 này, cần merge PR trước khi sử dụng từ `develop`.
 
+## Booking core trong nhánh kế tiếp
+
+Nhánh `dang/booking-packages` bổ sung 9 route Booking: snapshot điều khoản/giá, đủ slot cho gói, idempotency, quyền sở hữu, audit, hủy/hết hạn và dời một buổi có bên còn lại chấp thuận. Ý định lưu bền để phục hồi nếu tiến trình dừng sau khi Scheduling đã commit.
+
+**Chưa có Payments xác minh gateway thật, adapter bằng chứng Learning hoặc dispatcher outbox.** Booking đầu cuối chưa hoàn tất: API complete trả 503 khi cần nguồn Learning chưa có. Tổng 70 REST có route trên nhánh này, gồm 9 route Booking còn phụ thuộc; không phải 70 API production sẵn sàng. Scheduling ND-10 nằm trong PR #27; Booking dựa trên phần nền đó.
+
 ## Chưa hoàn thiện
 
 | Module | REST theo kế hoạch | Phụ thuộc cần nối |
 |---|---:|---|
-| Booking | 9 | Snapshot giá/dịch vụ, giữ đủ slot cho gói nhiều buổi, thanh toán đáng tin cậy, dời lịch và audit |
+| Booking | 9 (core đã có) | Nối Payments, Learning, dispatcher outbox và kiểm chứng đầu cuối |
 | Payments | 7 | Gateway, webhook có xác minh, ledger/escrow, idempotency và đối soát |
 | Learning | 16 | Tạo đủ buổi từ booking, quyền tham gia, điểm danh, bài tập và tài liệu |
 | Reviews | 7 | Bằng chứng hoàn tất, một review/booking, sửa 48 giờ và thống kê |
 | Recommendations | 5 | Dữ liệu thật từ hồ sơ, kỹ năng, booking và review |
 
-Năm module trên vẫn là stub tại mốc ND-10, chưa có API nghiệp vụ. Không coi tài liệu thiết kế hoặc code dở trong stash là tính năng đã chạy.
+Tại mốc ND-10 năm module trên còn stub; nhánh Booking kế tiếp đã bổ sung core như trên. Payments, Learning, Reviews và Recommendations vẫn chưa có API nghiệp vụ. Không coi tài liệu thiết kế hoặc code dở trong stash là tính năng đã chạy.
 
 ## Quyết định đã chốt với chủ dự án
 
@@ -52,6 +58,16 @@ Ngày 20/10/2026 trên Windows/.NET 10, database PostgreSQL 18 và Redis thử n
 - Đã dọn database/container/tiến trình thử nghiệm; không migrate database của người dùng.
 
 Các kiểm tra này không chứng minh năm module còn stub hoặc các tích hợp production đã hoàn tất.
+
+## Bằng chứng Booking core
+
+Ngày 20/10/2026: Release build 0 warning/error; format đạt; PostgreSQL/HTTP checks đạt, cùng 3 architecture + 117 integration tests, có Redis thật.
+
+- Cùng key tạo đồng thời trả cùng booking; hai booking tranh một gói chỉ một thắng. Kiểm tra quyền xem/audit/xác nhận, số buổi, version và khớp tiền khi retry thanh toán.
+- Dời lịch không tự duyệt/khác chủ; swap đúng một slot, giữ ID buổi, retry không lặp sự kiện.
+- Ngắt sau khi Scheduling commit hold hoặc swap: ý định còn bền vững, lần tiếp tục khôi phục đúng booking và lịch, không giữ/đổi lần hai.
+- Hủy đã trả tiền dừng RefundReview; hết hạn nhả đủ slot. Host thật trên database mới kiểm tra migration, health/OpenAPI và worker không lỗi ở lượt thăm dò đầu.
+- Chưa chứng minh gateway, consumer Learning hoặc thanh toán/giải ngân production.
 
 ## Ghi chú lịch sử
 
