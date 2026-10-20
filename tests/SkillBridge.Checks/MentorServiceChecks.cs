@@ -5,9 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Catalog.Application;
+using SkillBridge.Modules.Catalog.Application.DTOs.Requests;
 using SkillBridge.Modules.Catalog.Domain;
 using SkillBridge.Modules.Identity.Domain;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 
 namespace SkillBridge.Checks;
 

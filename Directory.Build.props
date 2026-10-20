@@ -4,6 +4,7 @@
         <LangVersion>13.0</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**</DefaultItemExcludes>
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     </PropertyGroup>
 </Project>

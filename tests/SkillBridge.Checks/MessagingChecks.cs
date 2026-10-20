@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SkillBridge.BuildingBlocks.Security;
 using SkillBridge.Modules.Identity.Domain;
-using SkillBridge.Modules.Identity.Infrastructure.Data;
+using SkillBridge.Modules.Identity.Infrastructure.Persistence;
 using SkillBridge.Modules.Messaging.Domain;
 using SkillBridge.Modules.Messaging.Infrastructure;
 

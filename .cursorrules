@@ -12,3 +12,11 @@
 - Invariant 7: Use 4 internal layers inside each module: `Domain/`, `Application/`, `Infrastructure/`, `Endpoints/`.
 - Invariant 8: In EF Core configurations (`IEntityTypeConfiguration<T>`), always `builder.Ignore(e => e.DomainEvents);`.
 - Invariant 9: Endpoints should use ASP.NET Core Minimal APIs grouped by `/api/v1/{routePrefix}`.
+- Group Application by feature (Identity: Auth, Users); place each use case in `{Feature}/{UseCase}.cs` and HTTP contracts in `{Feature}/DTOs/Requests/` and `{Feature}/DTOs/Responses/`. Map Requests to internal Commands/Queries in Endpoints.
+- Put module DbContext, Configurations and Migrations in `Infrastructure/Persistence/`; shared CQRS, behaviors and events in `BuildingBlocks/Messaging/`. Keep namespaces aligned with these folders.
+- Create folders only when they contain code. Keep architecture tests in `tests/ArchitectureTests/` and endpoint/security tests in `tests/IntegrationTests/`.
+- Register all modules in Api/Modules/ModuleRegistry.cs. Keep Program as composition; API service registration and pipeline live in Api/Extensions, host routes in Api/Endpoints.
+- Shared module contracts belong to BuildingBlocks/Modules, EF interceptors to Persistence/Interceptors, pagination to Results/Pagination, and HTTP Result adapters to Http.
+- Use Directory.Build.props for common C# settings and Directory.Packages.props for NuGet versions. Reference JwtBearer only in Api and Npgsql in modules with PostgreSQL; do not put Version on project PackageReference items.
+
+- Keep single-file use cases directly in their business group. Modules without a contract group use Application/Requests and Application/Responses. Name HTTP outputs *Response and keep internal results separate.
