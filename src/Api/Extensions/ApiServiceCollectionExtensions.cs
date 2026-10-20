@@ -80,6 +80,7 @@ public static class ApiServiceCollectionExtensions
         services.AddBookingComposition();
         services.AddLearningComposition();
         services.AddPaymentsComposition();
+        services.AddReviewsComposition();
 
         return services;
     }
