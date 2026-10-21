@@ -45,6 +45,9 @@ public static class AuthEndpoints
 
         group.MapPost("/refresh", async (HttpContext context, ISender sender, JwtSettings settings, CancellationToken cancellationToken) =>
         {
+            if (!IsTrustedBrowserRefresh(context.Request))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+
             var token = context.Request.Cookies[CookieName];
             var result = await sender.Send(new RefreshTokenCommand(token ?? "", context.Connection.RemoteIpAddress?.ToString()), cancellationToken);
             if (result.IsFailure)
@@ -120,4 +123,20 @@ public static class AuthEndpoints
         Path = "/api/v1/identity/auth",
         MaxAge = TimeSpan.FromDays(expirationDays)
     };
+
+    private static bool IsTrustedBrowserRefresh(HttpRequest request)
+    {
+        var fetchSite = request.Headers["Sec-Fetch-Site"].ToString();
+        if (fetchSite.Length > 0 && fetchSite != "same-origin") return false;
+
+        var sourceHeader = request.Headers.Origin.ToString();
+        if (sourceHeader.Length == 0)
+            sourceHeader = request.Headers.Referer.ToString();
+        if (sourceHeader.Length == 0) return true; // Server-to-server refresh from the web BFF.
+
+        return Uri.TryCreate(sourceHeader, UriKind.Absolute, out var source)
+            && source.Scheme is "http" or "https"
+            && string.Equals(source.Authority, request.Host.Value, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(source.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase);
+    }
 }

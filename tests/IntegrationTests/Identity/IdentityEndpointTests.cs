@@ -15,6 +15,40 @@ public sealed class IdentityEndpointTests(IdentityApiFixture api) : IClassFixtur
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Theory]
+    [InlineData("https://untrusted.example", null)]
+    [InlineData(null, "cross-site")]
+    public async Task Browser_refresh_from_another_origin_is_rejected(
+        string? origin, string? fetchSite)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, AuthPath + "refresh");
+        request.Headers.Add("Cookie", "refreshToken=fixture-cookie-token");
+        if (origin is not null) request.Headers.Add("Origin", origin);
+        if (fetchSite is not null) request.Headers.Add("Sec-Fetch-Site", fetchSite);
+        api.Sender.LastRequest = null;
+
+        using var response = await api.Client.SendAsync(request);
+
+        Assert.Equal(403, (int)response.StatusCode);
+        Assert.Null(api.Sender.LastRequest);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+    }
+
+    [Fact]
+    public async Task Browser_refresh_from_the_API_origin_is_allowed()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, AuthPath + "refresh");
+        request.Headers.Add("Cookie", "refreshToken=fixture-cookie-token");
+        request.Headers.Add("Origin", api.Client.BaseAddress!.GetLeftPart(UriPartial.Authority));
+        request.Headers.Add("Sec-Fetch-Site", "same-origin");
+        api.Sender.LastRequest = null;
+
+        using var response = await api.Client.SendAsync(request);
+
+        Assert.Equal(200, (int)response.StatusCode);
+        Assert.IsType<RefreshTokenCommand>(api.Sender.LastRequest);
+    }
+
+    [Theory]
     [MemberData(nameof(EndpointCases))]
     public async Task Requests_preserve_binding_mapping_and_authorization(
         string name, string method, string path, string? body, string? cookie,
