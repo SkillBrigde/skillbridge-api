@@ -28,17 +28,20 @@ public static class HostEndpoints
             Predicate = check => check.Tags.Contains("ready")
         });
 
-        app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
+        if (app.Environment.IsDevelopment())
         {
-            Service = "SkillBridge API",
-            Architecture = "Modular Monolith (.NET 10)",
-            Status = "Running",
-            TotalModules = modules.Count,
-            ActiveModules = modules.Select(module => module.Name),
-            ScalarDocs = "/scalar/v1",
-            OpenApiSpec = "/openapi/v1.json",
-            Timestamp = DateTimeOffset.UtcNow
-        }));
+            app.MapGet("/", () => Microsoft.AspNetCore.Http.Results.Ok(new
+            {
+                Service = "SkillBridge API",
+                Architecture = "Modular Monolith (.NET 10)",
+                Status = "Running",
+                TotalModules = modules.Count,
+                ActiveModules = modules.Select(module => module.Name),
+                ScalarDocs = "/scalar/v1",
+                OpenApiSpec = "/openapi/v1.json",
+                Timestamp = DateTimeOffset.UtcNow
+            }));
+        }
 
         return app;
     }

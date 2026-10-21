@@ -25,7 +25,7 @@ public sealed class ApiHostTests
     [Fact]
     public async Task Root_reports_all_registered_modules_in_the_existing_order()
     {
-        await using var app = await StartAppAsync();
+        await using var app = await StartAppAsync(environmentName: Environments.Development);
         using var client = app.GetTestClient();
         using var response = await client.GetAsync("/");
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -38,6 +38,16 @@ public sealed class ApiHostTests
         Assert.Equal("/scalar/v1", body.RootElement.GetProperty("scalarDocs").GetString());
         Assert.Equal("/openapi/v1.json", body.RootElement.GetProperty("openApiSpec").GetString());
         Assert.True(response.Headers.Contains("X-Correlation-ID"));
+    }
+
+    [Fact]
+    public async Task Production_root_does_not_expose_module_metadata()
+    {
+        await using var app = await StartAppAsync();
+        using var client = app.GetTestClient();
+        using var response = await client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Theory]
@@ -53,7 +63,7 @@ public sealed class ApiHostTests
     [InlineData("recommendations", "Recommendations")]
     public async Task Every_module_keeps_its_probe_route(string prefix, string expectedName)
     {
-        await using var app = await StartAppAsync();
+        await using var app = await StartAppAsync(environmentName: Environments.Development);
         using var client = app.GetTestClient();
         using var response = await client.GetAsync($"/api/v1/{prefix}/_module");
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -62,6 +72,19 @@ public sealed class ApiHostTests
         Assert.Equal(expectedName, body.RootElement.GetProperty("name").GetString());
         Assert.Equal(prefix, body.RootElement.GetProperty("routePrefix").GetString());
         Assert.Equal("available", body.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Production_does_not_publish_module_probe_routes()
+    {
+        await using var app = await StartAppAsync();
+        using var client = app.GetTestClient();
+
+        foreach (var prefix in ModuleNames.Select(name => name.ToLowerInvariant()))
+        {
+            using var response = await client.GetAsync($"/api/v1/{prefix}/_module");
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
     }
 
     [Theory]
@@ -100,7 +123,7 @@ public sealed class ApiHostTests
     {
         await using var app = await StartAppAsync(configuredOrigins);
         using var client = app.GetTestClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
         request.Headers.Add("Origin", origin);
         using var response = await client.SendAsync(request);
 
@@ -129,12 +152,13 @@ public sealed class ApiHostTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static async Task<WebApplication> StartAppAsync(bool configuredOrigins = false)
+    private static async Task<WebApplication> StartAppAsync(
+        bool configuredOrigins = false, string? environmentName = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             ApplicationName = typeof(Program).Assembly.GetName().Name,
-            EnvironmentName = Environments.Production
+            EnvironmentName = environmentName ?? Environments.Production
         });
         builder.Configuration.Sources.Clear();
         var settings = new Dictionary<string, string?>

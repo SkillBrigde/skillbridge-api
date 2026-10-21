@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace SkillBridge.BuildingBlocks.Modules;
 
@@ -17,6 +18,11 @@ public abstract class ModuleDefinition : IModule
 
     public virtual void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        if (!endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            return;
+        }
+
         var group = endpoints.MapGroup($"/api/v1/{RoutePrefix}").WithTags(Name);
 
         // Chỉ định rõ Microsoft.AspNetCore.Http.Results để tránh xung đột namespace SkillBridge.BuildingBlocks.Results
