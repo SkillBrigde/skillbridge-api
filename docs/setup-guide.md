@@ -65,7 +65,7 @@ Tất cả project kế thừa cấu hình C# từ `Directory.Build.props`. Phi�
 2. **Cô lập dữ liệu (Schema Isolation)**: Mỗi module sở hữu riêng một PostgreSQL schema (ví dụ: `identity.users`, `booking.appointments`). Module này không được đọc/ghi trực tiếp vào schema của module khác.
 3. **Giao tiếp liên module**:
     - Truy vấn đồng bộ (Sync): Sử dụng In-Memory Dispatcher hoặc Public Contracts interface.
-    - Luồng nghiệp vụ bất đồng bộ (Async): Sử dụng **Integration Events** qua **RabbitMQ** với Transactional Outbox Pattern.
+    - Luồng nghiệp vụ bất đồng bộ (Async): Hiện dùng `InMemoryEventBus`; RabbitMQ và Transactional Outbox là hướng tích hợp tiếp theo.
 
 ---
 
@@ -74,7 +74,7 @@ Tất cả project kế thừa cấu hình C# từ `Directory.Build.props`. Phi�
 Trước khi bắt đầu, đảm bảo máy bạn đã cài đặt:
 
 - **.NET 10 SDK** (phiên bản `10.0.x` - kiểm tra bằng `dotnet --version`).
-- **Docker Desktop** (hoặc Docker Engine + Docker Compose) để chạy database và message broker.
+- **Docker Desktop** (hoặc Docker Engine + Docker Compose) để chạy PostgreSQL và Redis local.
 - **IDE khuyên dùng**:
     - Visual Studio 2022 (v17.12 trở lên)
     - VS Code (cài extension _C# Dev Kit_)
@@ -84,30 +84,33 @@ Trước khi bắt đầu, đảm bảo máy bạn đã cài đặt:
 
 ## 3. Khởi động hạ tầng cục bộ với Docker Compose
 
-Tất cả các dịch vụ phụ trợ cần thiết đã được cấu hình trong file `docker-compose.yml`.
+Khi chạy hoàn toàn local, dùng `skillbridge-infra/compose.yaml`. Bắt đầu Docker Desktop, rồi từ thư mục gốc repo API chạy:
 
-[01-init-schemas.sql](../scripts/init-db/01-init-schemas.sql) chỉ chạy khi khởi tạo volume PostgreSQL mới, tạo extension và 10 schema; không tạo bảng hoặc seed role. Bảng của module đã có code được quản lý bằng EF migrations. [database-blueprint.sql](database-blueprint.sql) là bản thiết kế tham khảo, không chạy kèm bootstrap/EF để tạo cùng các bảng.
+Bootstrap SQL trong repo infra chỉ chạy khi khởi tạo volume PostgreSQL mới, tạo extension và schema; không tạo bảng hoặc seed role. Bảng của module đã có code được quản lý bằng EF migrations. [database-blueprint.sql](database-blueprint.sql) là bản thiết kế tham khảo, không chạy kèm bootstrap/EF để tạo cùng các bảng.
 
 Thay bootstrap không thay đổi hoặc khởi tạo lại volume hiện có. Database từng dùng blueprint `snake_case` cần [đối chiếu schema/dữ liệu riêng](database-migrations.md#nguồn-quản-lý-schema-và-bootstrap); migration mới không tự chuyển cấu trúc đó. Không dùng `docker compose down -v` để sửa lệch schema nếu còn dữ liệu cần giữ.
 
-### Lệnh khởi động:
-
 ```powershell
-docker compose up -d
+Set-Location ../skillbridge-infra
+.\scripts\start.ps1
+Set-Location ../skillbridge-api
 ```
 
-### Danh sách các dịch vụ & Cổng truy cập:
+Mặc định chỉ chạy PostgreSQL và Redis. Nếu dùng PostgreSQL development chung của nhóm, chỉ chạy `docker compose up -d redis` trong repo infra và cấu hình chuỗi kết nối DB được cấp qua SSH tunnel/mạng riêng. Nếu cần RabbitMQ/MinIO local để phát triển tích hợp, chạy `./scripts/start.ps1 -Optional` trong repo infra. Không chạy đồng thời Compose cũ của repo API vì trùng cổng.
 
-| Dịch vụ                 | Cổng Host                          | Tài khoản mặc định                                                      | Mục đích                                                      |
-| :---------------------- | :--------------------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------ |
-| **PostgreSQL 17**       | `5432`                             | User: `skillbridge`<br/>Pass: `skillbridge`<br/>Database: `skillbridge` | Cơ sở dữ liệu chính lưu trữ theo từng schema của module       |
-| **RabbitMQ Management** | `5672` (AMQP)<br/>`15672` (Web UI) | User: `skillbridge`<br/>Pass: `skillbridge`                             | Dashboard quản lý message broker tại `http://localhost:15672` |
-| **Redis 7**             | `6379`                             | Không mật khẩu                                                          | Distributed caching & rate limiting                           |
+### Dịch vụ & cổng truy cập:
+
+| Dịch vụ | Cổng local | Cấu hình mẫu trong repo infra | Bật mặc định |
+| --- | --- | --- | --- |
+| PostgreSQL 17 | `5432` | DB/user `skillbridge`, password `skillbridge_dev_only` | Có |
+| Redis 7.4 | `6379` | Password `skillbridge_dev_only` | Có |
+| RabbitMQ / MinIO | `5672`, `15672` / `9000`, `9001` | Xem `.env.example` của repo infra | Tùy chọn |
 
 ### Các lệnh quản lý Docker hữu ích:
 
 ```powershell
 # Xem trạng thái các container đang chạy
+Set-Location ../skillbridge-infra
 docker compose ps
 
 # Xem log các dịch vụ
@@ -115,16 +118,21 @@ docker compose logs -f
 
 # Dừng toàn bộ dịch vụ (giữ lại dữ liệu volume)
 docker compose down
-
-# Dừng và xoá sạch dữ liệu cũ
-docker compose down -v
+Set-Location ../skillbridge-api
 ```
 
 ---
 
 ## 4. Cấu hình ứng dụng
 
-Credential JWT, database và RabbitMQ được nạp từ `.env` hoặc biến môi trường triển khai. `appsettings*.json` không chứa credential và Identity không còn chuỗi kết nối dự phòng. Cần điền `ConnectionStrings__Database`, `RabbitMq__Username`, `RabbitMq__Password` theo hạ tầng đang dùng; các giá trị local hiện có đã được giữ nguyên trong `.env` của workspace này.
+Credential JWT, database và Redis được nạp từ `.env` hoặc biến môi trường triển khai. `appsettings*.json` không chứa credential và Identity không còn chuỗi kết nối dự phòng. Cần điền `ConnectionStrings__Database` và `Redis__ConnectionString` theo `skillbridge-infra/.env`. Với file mẫu infra mới tạo, hai dòng tương ứng trong `.env` của API là:
+
+```dotenv
+ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only
+Redis__ConnectionString=localhost:6379,password=skillbridge_dev_only
+```
+
+`.env.example` của API còn phục vụ Compose cũ nên có mật khẩu khác; không dùng nguyên mẫu đó khi chạy infra repo. Không ghi đè `.env` đã có trên máy.
 
 Cấu hình phụ thuộc môi trường cũng nằm trong `.env`/biến môi trường:
 
@@ -132,9 +140,9 @@ Cấu hình phụ thuộc môi trường cũng nằm trong `.env`/biến môi tr
 | --- | --- |
 | `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1` | Các frontend origin được gọi API, gồm scheme/host/port; thêm origin bằng chỉ số tiếp theo. Khi triển khai, đặt đúng origin thực tế. |
 | `AllowedHosts` | Danh sách host HTTP được chấp nhận, phân cách bằng dấu `;`; môi trường triển khai cần giới hạn theo domain thực tế. |
-| `RabbitMq__Host`, `RabbitMq__Username`, `RabbitMq__Password` | Địa chỉ và thông tin truy cập broker của môi trường. |
+| `RabbitMq__Host`, `RabbitMq__Username`, `RabbitMq__Password` | Chỉ cần khi phát triển tích hợp broker; API hiện dùng `InMemoryEventBus`. |
 
-Các origin, AllowedHosts và thông tin RabbitMQ local hiện có được giữ nguyên khi chuyển khỏi JSON. `AllowedHosts` không đặt địa chỉ lắng nghe của API; các profile/cổng trong `launchSettings.json` vẫn là cấu hình IDE. JWT issuer/audience và thời hạn token tiếp tục là mặc định logic trong JSON.
+`AllowedHosts` không đặt địa chỉ lắng nghe của API; các profile/cổng trong `launchSettings.json` vẫn là cấu hình IDE. JWT issuer/audience và thời hạn token tiếp tục là mặc định logic trong JSON.
 
 `Jwt__SecretKey` trong `.env.example` cố ý để trống. Key thật chỉ đặt trong `.env` được Git/Docker bỏ qua hoặc biến môi trường triển khai; dùng bộ sinh ngẫu nhiên mật mã, tối thiểu 32 byte UTF-8. API dừng khởi động nếu thiếu key hoặc key ngắn hơn mức này.
 
@@ -167,7 +175,7 @@ $envLines += "Jwt__SecretKey=$jwtValue"
 Remove-Variable jwtBytes, jwtRandom, jwtValue, envLines
 ```
 
-Kiểm tra thông tin kết nối DB/broker trong file mới theo hạ tầng local. Mỗi môi trường triển khai phải cấp secret riêng qua biến môi trường; không dùng chung key local. Biến môi trường của tiến trình được ưu tiên hơn `.env`. Sau khi đổi key, khởi động lại API; access token ký bằng key cũ sẽ không còn hợp lệ. Việc đổi key không tự thu hồi refresh token hoặc đổi mật khẩu DB/broker. Xem [báo cáo bảo mật](security-review.md) về các phần còn cần xử lý.
+Kiểm tra thông tin kết nối DB/Redis trong file mới theo hạ tầng local. Mỗi môi trường triển khai phải cấp secret riêng qua biến môi trường; không dùng chung key local. Biến môi trường của tiến trình được ưu tiên hơn `.env`. Sau khi đổi key, khởi động lại API; access token ký bằng key cũ sẽ không còn hợp lệ. Việc đổi key không tự thu hồi refresh token hoặc đổi mật khẩu DB. Xem [báo cáo bảo mật](security-review.md) về các phần còn cần xử lý.
 
 ---
 
@@ -175,7 +183,7 @@ Kiểm tra thông tin kết nối DB/broker trong file mới theo hạ tầng lo
 
 Mở terminal tại thư mục gốc của dự án:
 
-Nếu database đã có dữ liệu, review [CompleteIdentitySchema và cách xử lý tài khoản legacy](database-migrations.md) trước khi chạy API. Host Development vẫn tự áp dụng migration; các lệnh tạo migration/xuất SQL dùng design-time factory không khởi động host và không tự cập nhật database.
+Nếu database đã có dữ liệu, review [chuỗi migration và dữ liệu legacy](database-migrations.md) trước khi chạy API. Host Development vẫn tự áp dụng migration; các lệnh tạo migration/xuất SQL dùng design-time factory không khởi động host và không tự cập nhật database.
 
 ```powershell
 # 1. Restore các package NuGet
@@ -380,13 +388,14 @@ Sau đó chạy lại lệnh biên dịch `dotnet build`.
 **Cách xử lý**:
 
 1. Đảm bảo Docker Desktop đang chạy.
-2. Kiểm tra container PostgreSQL bằng `docker compose ps`. Nếu chưa chạy, gõ:
+2. Trong repo `skillbridge-infra`, kiểm tra container PostgreSQL bằng `docker compose ps`. Nếu chưa chạy, gõ:
     ```powershell
-    docker compose up -d
+    .\scripts\start.ps1
     ```
-3. Đảm bảo file `.env` đã có chuỗi kết nối chuẩn:
+3. Đảm bảo `.env` của API khớp với `.env` của repo infra. Với giá trị mẫu local:
     ```env
-    ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge
+    ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only
+    Redis__ConnectionString=localhost:6379,password=skillbridge_dev_only
     ```
 
 ---

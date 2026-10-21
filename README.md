@@ -28,7 +28,7 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 | 📘 **Hướng Dẫn Cài Đặt & Phát Triển**           | [docs/setup-guide.md](docs/setup-guide.md)                                                                                | Các bước setup, chạy Docker, test API, quy chuẩn CI trước khi tạo PR.                                                               |
 | 🗺️ **Tổng Quan Hệ Thống & 7 Bounded Contexts**  | [docs/system-overview.md](docs/system-overview.md)                                                                        | Bức tranh tổng quan, C4 Container, Next.js BFF Zero-Token, Dual Payment Gateway.                                                    |
 | 🗄️ **Thiết Kế Cơ Sở Dữ Liệu Chi Tiết**          | [docs/database-design.md](docs/database-design.md)                                                                        | Sơ đồ ERD, 7 Bounded Contexts / 24 bảng chuyên trách, kiểu dữ liệu, index.                                                          |
-| **Migration database**                        | [docs/database-migrations.md](docs/database-migrations.md)                                                                | Tạo/xuất SQL, CompleteIdentitySchema và xử lý tài khoản legacy trước khi nâng cấp. |
+| **Migration database**                        | [docs/database-migrations.md](docs/database-migrations.md)                                                                | Tạo/xuất SQL, rà soát chuỗi migration và dữ liệu legacy trước khi nâng cấp. |
 | ⚙️ **Chi Tiết Luồng Thực Thi Mã Nguồn**         | [docs/code-runtime-flow.md](docs/code-runtime-flow.md)                                                                    | Giải thích file-by-file vòng đời khởi động và luồng xử lý một HTTP Request.                                                         |
 | 🤖 **Bộ Prompt / Skill Cho AI Coding**          | [docs/chatgpt-skill-prompt.md](docs/chatgpt-skill-prompt.md)                                                              | Bộ chỉ dẫn để nạp vào AI sinh code chuẩn DDD không vi phạm module.                                                                  |
 | **Rà soát bảo mật 2026-10-17**                 | [docs/security-review.md](docs/security-review.md)                                                                      | Các chỉnh sửa quản lý secret và vấn đề phân quyền, phiên đăng nhập còn cần xử lý. |
@@ -43,31 +43,36 @@ Dự án đã chuẩn bị đầy đủ bộ tài liệu chuẩn Enterprise cho 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Docker Desktop](https://www.docker.com/)
 
-### 2. Khởi động hạ tầng cục bộ (Database, Broker, Cache)
+### 2. Khởi động hạ tầng cục bộ (Database, Cache)
 
-Khởi động PostgreSQL 17, RabbitMQ và Redis; migration dữ liệu do từng module quản lý:
+Khi chạy hoàn toàn local, dùng repo `skillbridge-infra`: chạy Docker Desktop, sau đó chạy `./scripts/start.ps1` trong repo đó để bật PostgreSQL 17 và Redis. RabbitMQ/MinIO chỉ bật khi cần bằng `./scripts/start.ps1 -Optional`. Nếu dùng PostgreSQL development chung của nhóm, chỉ chạy `docker compose up -d redis` trong repo infra và đặt chuỗi kết nối API theo endpoint/tài khoản được cấp. Không khởi động đồng thời `docker-compose.yml` của repo API vì sẽ trùng cổng.
 
-Bootstrap [01-init-schemas.sql](scripts/init-db/01-init-schemas.sql) chỉ tạo extension và 10 schema khi volume PostgreSQL còn mới. EF migrations sở hữu các bảng được triển khai; [database-blueprint.sql](docs/database-blueprint.sql) chỉ là bản thiết kế tham khảo. Volume hiện có giữ nguyên; database từng tạo theo blueprint `snake_case` cần đối chiếu riêng theo [hướng dẫn migration](docs/database-migrations.md#nguồn-quản-lý-schema-và-bootstrap).
+Bootstrap của repo infra chỉ chạy khi volume PostgreSQL còn mới. EF migrations sở hữu các bảng được triển khai; [database-blueprint.sql](docs/database-blueprint.sql) chỉ là bản thiết kế tham khảo. Volume hiện có giữ nguyên; database từng tạo theo blueprint `snake_case` cần đối chiếu riêng theo [hướng dẫn migration](docs/database-migrations.md#nguồn-quản-lý-schema-và-bootstrap).
 
 ```powershell
-docker compose up -d
+Set-Location ../skillbridge-infra
+.\scripts\start.ps1
+Set-Location ../skillbridge-api
 ```
 
-| Dịch vụ           | Cổng Host                      | Thông tin đăng nhập / Web UI                                                                 |
-| :---------------- | :----------------------------- | :------------------------------------------------------------------------------------------- |
-| **PostgreSQL 17** | `5432`                         | DB: `skillbridge` / User: `skillbridge` / Pass: `skillbridge`                                |
-| **RabbitMQ**      | `5672` (AMQP)<br/>`15672` (UI) | [http://localhost:15672](http://localhost:15672) (User: `skillbridge` / Pass: `skillbridge`) |
-| **Redis**         | `6379`                         | Mặc định localhost:6379                                                                      |
+Mặc định: PostgreSQL `localhost:5432` (DB/user `skillbridge`) và Redis `localhost:6379`, chỉ lắng nghe ở `127.0.0.1`. Mật khẩu local mẫu trong repo infra là `skillbridge_dev_only`.
 
 ### 3. Chạy ứng dụng API
 
-API cần `Jwt__SecretKey`, `ConnectionStrings__Database`, `Redis__ConnectionString` từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống.
+API cần `Jwt__SecretKey`, `ConnectionStrings__Database`, `Redis__ConnectionString` từ `.env` hoặc biến môi trường triển khai; các credential đã được bỏ khỏi `appsettings*.json`. Với checkout mới, tạo `.env` từ `.env.example` rồi sinh key theo [hướng dẫn cấu hình](docs/setup-guide.md#4-cấu-hình-ứng-dụng); dòng `Jwt__SecretKey` trong file mẫu cố ý để trống. Vì `.env.example` của API còn phục vụ Compose cũ, khi dùng repo infra hãy sửa hai dòng sau trong `.env` của API:
+
+```dotenv
+ConnectionStrings__Database=Host=localhost;Port=5432;Database=skillbridge;Username=skillbridge;Password=skillbridge_dev_only
+Redis__ConnectionString=localhost:6379,password=skillbridge_dev_only
+```
+
+Nếu `skillbridge-infra/.env` đã có cấu hình riêng, dùng đúng DB/user/password/port trong file đó thay cho giá trị mẫu.
 
 CORS và địa chỉ phụ thuộc môi trường dùng `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, `AllowedHosts`, `RabbitMq__Host` trong `.env`/biến môi trường. `launchSettings.json` tiếp tục là cấu hình chạy từ IDE; JWT issuer/audience là định danh logic, vẫn có mặc định trong JSON.
 
 Key JWT phải được sinh ngẫu nhiên bằng bộ sinh mật mã, tối thiểu 32 byte UTF-8; không đưa key thật vào Git hoặc `appsettings`. Mỗi môi trường triển khai phải cấp secret riêng. Đổi key cần khởi động lại API và làm access token ký bằng key cũ hết hiệu lực.
 
-Với database đã có dữ liệu, đọc [hướng dẫn migration](docs/database-migrations.md) trước khi chạy API Development: host tự áp dụng migration, còn `CompleteIdentitySchema` sẽ khóa tài khoản legacy và yêu cầu phục hồi mật khẩu riêng. Tạo migration/xuất SQL chưa áp dụng thay đổi vào database hiện có.
+Với database đã có dữ liệu, đọc [hướng dẫn migration](docs/database-migrations.md) trước khi chạy API Development: host tự áp dụng migration của các module. Đặc biệt không để nhiều branch có migration khác nhau cùng khởi động vào một database chung nếu chưa có quy trình áp dụng migration riêng. Tạo migration/xuất SQL chưa áp dụng thay đổi vào database hiện có.
 
 ```powershell
 dotnet restore
