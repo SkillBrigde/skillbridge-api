@@ -6,6 +6,7 @@ public static class ApiApplicationExtensions
 {
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
+        app.UseForwardedHeaders();
         app.UseExceptionHandler();
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseCors(ApiServiceCollectionExtensions.CorsPolicyName);

@@ -70,6 +70,8 @@ Nếu `skillbridge-infra/.env` đã có cấu hình riêng, dùng đúng DB/user
 
 CORS và địa chỉ phụ thuộc môi trường dùng `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, `AllowedHosts`, `RabbitMq__Host` trong `.env`/biến môi trường. `launchSettings.json` tiếp tục là cấu hình chạy từ IDE; JWT issuer/audience là định danh logic, vẫn có mặc định trong JSON.
 
+Khi API chạy sau Nginx qua Docker trên EC2, đặt `ReverseProxy__KnownProxy` thành đúng IP gateway mà container API nhìn thấy từ Nginx (kiểm tra bằng `docker inspect` trên máy chủ). Chỉ IP này được phép cung cấp `X-Forwarded-For` và `X-Forwarded-Proto`; middleware chỉ đọc một proxy hop trước bộ giới hạn lượt gọi và đăng nhập. Không bật `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` thay cho cấu hình proxy tin cậy vì chế độ đó chấp nhận forwarded headers từ nguồn không được giới hạn.
+
 Key JWT phải được sinh ngẫu nhiên bằng bộ sinh mật mã, tối thiểu 32 byte UTF-8; không đưa key thật vào Git hoặc `appsettings`. Mỗi môi trường triển khai phải cấp secret riêng. Đổi key cần khởi động lại API và làm access token ký bằng key cũ hết hiệu lực.
 
 Với database đã có dữ liệu, đọc [hướng dẫn migration](docs/database-migrations.md) trước khi chạy API Development: host tự áp dụng migration của các module. Đặc biệt không để nhiều branch có migration khác nhau cùng khởi động vào một database chung nếu chưa có quy trình áp dụng migration riêng. Tạo migration/xuất SQL chưa áp dụng thay đổi vào database hiện có.

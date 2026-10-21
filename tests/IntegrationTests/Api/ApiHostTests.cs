@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -140,6 +141,38 @@ public sealed class ApiHostTests
         Assert.Equal(expectCredentials, response.Headers.Contains("Access-Control-Allow-Credentials"));
     }
 
+    [Fact]
+    public async Task Trusted_proxy_uses_only_the_last_forwarded_client_address()
+    {
+        await using var app = await StartAppAsync(knownProxy: "172.18.0.1");
+        using var client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/_test/proxy");
+        request.Headers.Add("X-Forwarded-For", "203.0.113.1, 198.51.100.42");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        using var response = await client.SendAsync(request);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("198.51.100.42", body.RootElement.GetProperty("ip").GetString());
+        Assert.Equal("https", body.RootElement.GetProperty("scheme").GetString());
+    }
+
+    [Fact]
+    public async Task Untrusted_proxy_cannot_replace_the_client_address()
+    {
+        await using var app = await StartAppAsync(knownProxy: "172.18.0.2");
+        using var client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/_test/proxy");
+        request.Headers.Add("X-Forwarded-For", "198.51.100.42");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        using var response = await client.SendAsync(request);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("172.18.0.1", body.RootElement.GetProperty("ip").GetString());
+        Assert.Equal("http", body.RootElement.GetProperty("scheme").GetString());
+    }
+
     [Theory]
     [InlineData("/openapi/v1.json")]
     [InlineData("/scalar/v1")]
@@ -153,7 +186,7 @@ public sealed class ApiHostTests
     }
 
     private static async Task<WebApplication> StartAppAsync(
-        bool configuredOrigins = false, string? environmentName = null)
+        bool configuredOrigins = false, string? environmentName = null, string? knownProxy = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -169,6 +202,8 @@ public sealed class ApiHostTests
         };
         if (configuredOrigins)
             settings["Cors:AllowedOrigins:0"] = "https://client.example.test";
+        if (knownProxy is not null)
+            settings["ReverseProxy:KnownProxy"] = knownProxy;
         builder.Configuration.AddInMemoryCollection(settings);
         builder.Logging.ClearProviders();
         builder.WebHost.UseTestServer();
@@ -184,7 +219,18 @@ public sealed class ApiHostTests
                 _ => new UnavailableDatabase(), HealthStatus.Unhealthy, database.Tags));
         });
         var app = builder.Build();
+        if (knownProxy is not null)
+            app.Use((context, next) =>
+            {
+                context.Connection.RemoteIpAddress = IPAddress.Parse("172.18.0.1");
+                return next();
+            });
         app.UseApiPipeline();
+        app.MapGet("/_test/proxy", (HttpContext context) => Results.Ok(new
+        {
+            ip = context.Connection.RemoteIpAddress?.ToString(),
+            scheme = context.Request.Scheme
+        }));
         app.MapApiDocumentation();
         app.MapHostEndpoints(modules);
         app.MapModuleEndpoints(modules);

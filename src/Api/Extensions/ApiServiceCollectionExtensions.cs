@@ -1,4 +1,7 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using SkillBridge.Api.Common;
 using SkillBridge.Api.Middleware;
@@ -25,6 +28,23 @@ public static class ApiServiceCollectionExtensions
         });
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddOpenApi();
+
+        var knownProxy = configuration["ReverseProxy:KnownProxy"];
+        if (!string.IsNullOrWhiteSpace(knownProxy))
+        {
+            if (!IPAddress.TryParse(knownProxy, out var proxyAddress))
+                throw new InvalidOperationException("ReverseProxy:KnownProxy must be an IP address.");
+
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.ForwardLimit = 1;
+                options.KnownProxies.Add(proxyAddress);
+                if (proxyAddress.AddressFamily == AddressFamily.InterNetwork)
+                    options.KnownProxies.Add(proxyAddress.MapToIPv6());
+            });
+        }
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
